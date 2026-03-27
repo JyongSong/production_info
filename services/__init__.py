@@ -1,0 +1,34 @@
+from .match_service import (
+    DuplicatePairError,
+    DuplicateQRCodeError,
+    DuplicateSaveError,
+    NotFoundError,
+    ValidationError,
+    count_matches_by_date,
+    create_match,
+    delete_match,
+    get_match_by_id,
+    get_recent_matches,
+    list_matches_for_export,
+    search_matches,
+    update_match,
+)
+from .settings_service import get_qr_settings, update_qr_settings
+
+__all__ = [
+    "DuplicatePairError",
+    "DuplicateQRCodeError",
+    "DuplicateSaveError",
+    "NotFoundError",
+    "ValidationError",
+    "count_matches_by_date",
+    "create_match",
+    "delete_match",
+    "get_match_by_id",
+    "get_recent_matches",
+    "list_matches_for_export",
+    "search_matches",
+    "update_match",
+    "get_qr_settings",
+    "update_qr_settings",
+]

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SN 매칭 관리 툴</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=css_version) }}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <div>
+                <p class="eyebrow">생산 현장용 웹앱</p>
+                <h1>SN 매칭 관리 툴</h1>
+                <p class="hero-text">QR 리더기로 Lumi SN과 Solity SN을 순서대로 스캔하면 바로 저장됩니다.</p>
+            </div>
+            <div class="summary-card">
+                <span class="summary-label">오늘 등록 건수</span>
+                <strong id="todayCount">{{ today_count }}</strong>
+                <span class="summary-date">{{ today }}</span>
+            </div>
+        </header>
+
+        <main class="layout">
+            <section class="panel scan-panel">
+                <div class="section-head">
+                    <h2>SN 스캔 등록</h2>
+                    <p>엔터 중심으로 연속 작업이 가능하도록 구성했습니다.</p>
+                </div>
+
+                <form id="scanForm" class="form-grid" autocomplete="off" onsubmit="return false;">
+                    <label class="field">
+                        <span>Lumi SN</span>
+                        <input id="firstQr" name="first_qr" type="text" placeholder="Lumi SN 스캔" autofocus>
+                    </label>
+
+                    <label class="field">
+                        <span>Solity SN</span>
+                        <input id="secondQr" name="second_qr" type="text" placeholder="Solity SN 스캔">
+                    </label>
+
+                    <label class="field optional-field">
+                        <span>작업자명 (옵션)</span>
+                        <input id="operatorName" name="operator_name" type="text" placeholder="예: 홍길동">
+                    </label>
+
+                    <label class="field optional-field">
+                        <span>비고 (옵션)</span>
+                        <input id="note" name="note" type="text" placeholder="필요 시만 입력">
+                    </label>
+
+                    <div class="button-row">
+                        <button id="saveButton" class="primary-button" type="submit">저장</button>
+                        <button id="resetButton" class="secondary-button" type="button">입력 초기화</button>
+                    </div>
+                </form>
+
+                <div id="statusMessage" class="status-message info">Lumi SN을 스캔해주세요.</div>
+
+                <section class="settings-box">
+                    <div class="settings-head">
+                        <h3>SN 자릿수 설정</h3>
+                        <p>0으로 저장하면 자릿수 강제를 사용하지 않습니다.</p>
+                    </div>
+
+                    <form id="settingsForm" class="settings-grid" autocomplete="off" onsubmit="return false;">
+                        <label class="field compact-field">
+                            <span>Lumi SN 자릿수</span>
+                            <input id="firstQrLength" type="number" min="0" max="999" inputmode="numeric" value="{{ qr_settings.first_qr_length }}">
+                        </label>
+
+                        <label class="field compact-field">
+                            <span>Solity SN 자릿수</span>
+                            <input id="secondQrLength" type="number" min="0" max="999" inputmode="numeric" value="{{ qr_settings.second_qr_length }}">
+                        </label>
+
+                        <div class="button-row settings-buttons">
+                            <button id="saveSettingsButton" class="ghost-button" type="submit">자릿수 저장</button>
+                        </div>
+                    </form>
+                </section>
+
+                <div class="workflow-guide">
+                    <div>1. Lumi SN 스캔 후 엔터</div>
+                    <div>2. Solity SN 스캔 후 엔터</div>
+                    <div>3. 저장 완료 후 자동으로 다음 작업 대기</div>
+                </div>
+            </section>
+
+            <section class="panel recent-panel">
+                <div class="section-head">
+                    <h2>최근 저장 내역 10건</h2>
+                    <button id="refreshRecentButton" class="ghost-button" type="button">새로고침</button>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>번호</th>
+                                <th>Lumi SN</th>
+                                <th>Solity SN</th>
+                                <th>등록일시</th>
+                                <th>작업자명</th>
+                                <th>비고</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentTableBody">
+                            <tr class="empty-row">
+                                <td colspan="7">저장된 내역을 불러오는 중입니다.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="panel search-panel">
+                <div class="section-head">
+                    <h2>조회 및 다운로드</h2>
+                    <p>Lumi SN, Solity SN, 날짜별 조회 및 엑셀 다운로드를 지원합니다.</p>
+                </div>
+
+                <form id="searchForm" class="search-grid" autocomplete="off" onsubmit="return false;">
+                    <label class="field">
+                        <span>Lumi SN 검색</span>
+                        <input id="searchFirstQr" name="search_first_qr" type="text" placeholder="부분 검색 가능">
+                    </label>
+
+                    <label class="field">
+                        <span>Solity SN 검색</span>
+                        <input id="searchSecondQr" name="search_second_qr" type="text" placeholder="부분 검색 가능">
+                    </label>
+
+                    <label class="field">
+                        <span>날짜별 조회</span>
+                        <input id="searchDate" name="search_date" type="date">
+                    </label>
+
+                    <div class="button-row search-buttons">
+                        <button class="primary-button" type="submit">조회</button>
+                        <button id="resetSearchButton" class="secondary-button" type="button">조건 초기화</button>
+                        <button id="downloadAllButton" class="ghost-button" type="button">전체 엑셀 다운로드</button>
+                        <button id="downloadDateButton" class="ghost-button" type="button">날짜별 엑셀 다운로드</button>
+                    </div>
+                </form>
+
+                <div id="searchSummary" class="search-summary">조회 결과가 여기에 표시됩니다.</div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>번호</th>
+                                <th>Lumi SN</th>
+                                <th>Solity SN</th>
+                                <th>등록일시</th>
+                                <th>작업자명</th>
+                                <th>비고</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="searchTableBody">
+                            <tr class="empty-row">
+                                <td colspan="7">검색 조건을 입력하고 조회해주세요.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="editModal" class="modal-overlay" hidden>
+        <div class="modal-card">
+            <div class="modal-head">
+                <div>
+                    <p class="modal-eyebrow">등록값 수정</p>
+                    <h2>SN 매칭 수정</h2>
+                </div>
+                <button id="closeEditModalButton" class="modal-close" type="button" aria-label="수정 창 닫기">닫기</button>
+            </div>
+
+            <div id="editMeta" class="modal-meta">등록일시: -</div>
+            <div id="editMessage" class="inline-message info">수정할 내용을 입력한 뒤 저장해주세요.</div>
+
+            <form id="editForm" class="form-grid edit-form" autocomplete="off" onsubmit="return false;">
+                <input id="editId" type="hidden">
+
+                <label class="field">
+                    <span>Lumi SN</span>
+                    <input id="editFirstQr" type="text" placeholder="Lumi SN">
+                </label>
+
+                <label class="field">
+                    <span>Solity SN</span>
+                    <input id="editSecondQr" type="text" placeholder="Solity SN">
+                </label>
+
+                <label class="field optional-field">
+                    <span>작업자명 (옵션)</span>
+                    <input id="editOperatorName" type="text" placeholder="예: 홍길동">
+                </label>
+
+                <label class="field optional-field">
+                    <span>비고 (옵션)</span>
+                    <input id="editNote" type="text" placeholder="필요 시만 입력">
+                </label>
+
+                <div class="button-row">
+                    <button id="editSaveButton" class="primary-button" type="submit">수정 저장</button>
+                    <button id="cancelEditButton" class="secondary-button" type="button">취소</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script id="initialRecentMatches" type="application/json">{{ recent_matches | tojson }}</script>
+    <script id="initialQrSettings" type="application/json">{{ qr_settings | tojson }}</script>
+    <script src="{{ url_for('static', filename='js/scan-core.js', v=scan_js_version) }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js', v=js_version) }}"></script>
+</body>
+</html>
