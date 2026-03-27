@@ -111,21 +111,50 @@ def add_no_cache_headers(response):
     return response
 
 
+def _common_versions() -> dict:
+    return {
+        "css_version": get_asset_version("static/css/style.css"),
+        "js_version": get_asset_version("static/js/app.js"),
+        "scan_js_version": get_asset_version("static/js/scan-core.js"),
+        "sound_js_version": get_asset_version("static/js/sound.js"),
+    }
+
+
 @app.get("/")
-def index():
+def home():
     today = datetime.now().strftime("%Y-%m-%d")
-    recent_matches = get_recent_matches()
-    today_count = count_matches_by_date(today)
-    qr_settings = get_qr_settings()
     return render_template(
-        "index.html",
-        css_version=get_asset_version("static/css/style.css"),
-        scan_js_version=get_asset_version("static/js/scan-core.js"),
-        js_version=get_asset_version("static/js/app.js"),
-        qr_settings=qr_settings,
-        recent_matches=recent_matches,
-        today_count=today_count,
+        "home.html",
+        today_count=count_matches_by_date(today),
         today=today,
+        **_common_versions(),
+    )
+
+
+@app.get("/scan")
+def scan_page():
+    today = datetime.now().strftime("%Y-%m-%d")
+    return render_template(
+        "scan.html",
+        recent_matches=get_recent_matches(),
+        today_count=count_matches_by_date(today),
+        today=today,
+        qr_settings=get_qr_settings(),
+        **_common_versions(),
+    )
+
+
+@app.get("/search")
+def search_page():
+    return render_template("search.html", **_common_versions())
+
+
+@app.get("/settings")
+def settings_page():
+    return render_template(
+        "settings.html",
+        qr_settings=get_qr_settings(),
+        **_common_versions(),
     )
 
 

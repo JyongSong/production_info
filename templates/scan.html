@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}생산 진행 — SN 매칭 관리 툴{% endblock %}
+
+{% block header %}
+<header class="hero">
+    <div>
+        <a href="/" class="back-link">&larr; 메인으로</a>
+        <h1>생산 진행</h1>
+        <p class="hero-text">엔터 중심으로 연속 작업이 가능하도록 구성했습니다.</p>
+    </div>
+    <div class="summary-card">
+        <span class="summary-label">오늘 등록 건수</span>
+        <strong id="todayCount">{{ today_count }}</strong>
+        <span class="summary-date">{{ today }}</span>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<main class="layout">
+    <section class="panel scan-panel">
+        <div class="section-head">
+            <h2>SN 스캔 등록</h2>
+        </div>
+
+        <form id="scanForm" class="form-grid" autocomplete="off" onsubmit="return false;">
+            <label class="field">
+                <span>Lumi SN</span>
+                <input id="firstQr" name="first_qr" type="text" placeholder="Lumi SN 스캔" autofocus>
+            </label>
+
+            <label class="field">
+                <span>Solity SN</span>
+                <input id="secondQr" name="second_qr" type="text" placeholder="Solity SN 스캔">
+            </label>
+
+            <label class="field optional-field">
+                <span>작업자명 (옵션)</span>
+                <input id="operatorName" name="operator_name" type="text" placeholder="예: 홍길동">
+            </label>
+
+            <label class="field optional-field">
+                <span>비고 (옵션)</span>
+                <input id="note" name="note" type="text" placeholder="필요 시만 입력">
+            </label>
+
+            <div class="button-row">
+                <button id="saveButton" class="primary-button" type="submit">저장</button>
+                <button id="resetButton" class="secondary-button" type="button">입력 초기화</button>
+            </div>
+        </form>
+
+        <div id="statusMessage" class="status-message info">Lumi SN을 스캔해주세요.</div>
+
+        <div class="workflow-guide">
+            <div>1. Lumi SN 스캔 후 엔터</div>
+            <div>2. Solity SN 스캔 후 엔터</div>
+            <div>3. 저장 완료 후 자동으로 다음 작업 대기</div>
+        </div>
+    </section>
+
+    <section class="panel recent-panel">
+        <div class="section-head">
+            <h2>최근 저장 내역 10건</h2>
+            <button id="refreshRecentButton" class="ghost-button" type="button">새로고침</button>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>번호</th>
+                        <th>Lumi SN</th>
+                        <th>Solity SN</th>
+                        <th>등록일시</th>
+                        <th>작업자명</th>
+                        <th>비고</th>
+                        <th>관리</th>
+                    </tr>
+                </thead>
+                <tbody id="recentTableBody">
+                    <tr class="empty-row">
+                        <td colspan="7">저장된 내역을 불러오는 중입니다.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<div id="editModal" class="modal-overlay" hidden>
+    <div class="modal-card">
+        <div class="modal-head">
+            <div>
+                <p class="modal-eyebrow">등록값 수정</p>
+                <h2>SN 매칭 수정</h2>
+            </div>
+            <button id="closeEditModalButton" class="modal-close" type="button" aria-label="수정 창 닫기">닫기</button>
+        </div>
+
+        <div id="editMeta" class="modal-meta">등록일시: -</div>
+        <div id="editMessage" class="inline-message info">수정할 내용을 입력한 뒤 저장해주세요.</div>
+
+        <form id="editForm" class="form-grid edit-form" autocomplete="off" onsubmit="return false;">
+            <input id="editId" type="hidden">
+
+            <label class="field">
+                <span>Lumi SN</span>
+                <input id="editFirstQr" type="text" placeholder="Lumi SN">
+            </label>
+
+            <label class="field">
+                <span>Solity SN</span>
+                <input id="editSecondQr" type="text" placeholder="Solity SN">
+            </label>
+
+            <label class="field optional-field">
+                <span>작업자명 (옵션)</span>
+                <input id="editOperatorName" type="text" placeholder="예: 홍길동">
+            </label>
+
+            <label class="field optional-field">
+                <span>비고 (옵션)</span>
+                <input id="editNote" type="text" placeholder="필요 시만 입력">
+            </label>
+
+            <div class="button-row">
+                <button id="editSaveButton" class="primary-button" type="submit">수정 저장</button>
+                <button id="cancelEditButton" class="secondary-button" type="button">취소</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="initialRecentMatches" type="application/json">{{ recent_matches | tojson }}</script>
+<script id="initialQrSettings" type="application/json">{{ qr_settings | tojson }}</script>
+<script src="{{ url_for('static', filename='js/sound.js', v=sound_js_version) }}"></script>
+<script src="{{ url_for('static', filename='js/scan-core.js', v=scan_js_version) }}"></script>
+<script src="{{ url_for('static', filename='js/app.js', v=js_version) }}"></script>
+{% endblock %}

@@ -495,6 +495,115 @@ tbody tr:hover {
     background: rgba(170, 46, 37, 0.12);
 }
 
+/* ── Homepage cards ─────────────────────────────── */
+
+.home-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.home-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 40px 24px;
+    background: var(--panel);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    color: var(--text-main);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+}
+
+.home-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 48px rgba(18, 60, 82, 0.18);
+}
+
+.home-card h2 {
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+.home-card p {
+    margin: 0;
+    color: var(--text-subtle);
+    text-align: center;
+}
+
+.home-card-icon {
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+    font-size: 2rem;
+}
+
+.scan-icon {
+    background: rgba(241, 143, 1, 0.14);
+    color: var(--accent);
+}
+
+.search-icon {
+    background: rgba(18, 60, 82, 0.10);
+    color: var(--brand);
+}
+
+.settings-icon {
+    background: rgba(25, 113, 74, 0.12);
+    color: var(--success);
+}
+
+.home-card-arrow {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 1.4rem;
+    color: var(--text-subtle);
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.home-card:hover .home-card-arrow {
+    opacity: 1;
+}
+
+/* ── Back link ─────────────────────────────── */
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+/* ── Full-width panels for sub-pages ─────── */
+
+.search-panel-full,
+.settings-panel-full {
+    background: var(--panel);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+}
+
+/* ── Responsive ──────────────────────────── */
+
 @media (max-width: 1100px) {
     .layout {
         grid-template-columns: 1fr;
@@ -518,6 +627,10 @@ tbody tr:hover {
 @media (max-width: 760px) {
     .page-shell {
         padding: 16px;
+    }
+
+    .home-grid {
+        grid-template-columns: 1fr;
     }
 
     .form-grid,

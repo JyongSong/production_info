@@ -192,6 +192,7 @@
 
                 if (xhr.status < 200 || xhr.status >= 300) {
                     setStatus("error", data.message || "저장에 실패했습니다.");
+                    if (window.snSound) { window.snSound.playError(); }
                     if (window.qrDashboardHooks && typeof window.qrDashboardHooks.onSaveError === "function") {
                         window.qrDashboardHooks.onSaveError(data.message || "저장에 실패했습니다.");
                     }
@@ -199,6 +200,7 @@
                 }
 
                 setStatus("success", data.message || "매칭이 저장되었습니다.");
+                if (window.snSound) { window.snSound.playSuccess(); }
                 if (typeof data.today_count !== "undefined" && todayCount) {
                     todayCount.textContent = String(data.today_count);
                 }
@@ -218,6 +220,7 @@
                     saveButton.disabled = false;
                 }
                 setStatus("error", "저장 중 오류가 발생했습니다.");
+                if (window.snSound) { window.snSound.playError(); }
             };
 
             xhr.send(JSON.stringify({

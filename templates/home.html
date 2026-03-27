@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}SN 매칭 관리 툴{% endblock %}
+
+{% block header %}
+<header class="hero">
+    <div>
+        <p class="eyebrow">생산 현장용 웹앱</p>
+        <h1>SN 매칭 관리 툴</h1>
+        <p class="hero-text">QR 리더기로 Lumi SN과 Solity SN을 순서대로 스캔하면 바로 저장됩니다.</p>
+    </div>
+    <div class="summary-card">
+        <span class="summary-label">오늘 등록 건수</span>
+        <strong>{{ today_count }}</strong>
+        <span class="summary-date">{{ today }}</span>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<main class="home-grid">
+    <a href="/scan" class="home-card">
+        <div class="home-card-icon scan-icon">&#9998;</div>
+        <h2>생산 진행</h2>
+        <p>SN 스캔 등록</p>
+        <span class="home-card-arrow">&rarr;</span>
+    </a>
+
+    <a href="/search" class="home-card">
+        <div class="home-card-icon search-icon">&#128269;</div>
+        <h2>조회 및 다운로드</h2>
+        <p>SN 검색, 날짜별 조회, 엑셀 다운로드</p>
+        <span class="home-card-arrow">&rarr;</span>
+    </a>
+
+    <a href="/settings" class="home-card">
+        <div class="home-card-icon settings-icon">&#9881;</div>
+        <h2>설정</h2>
+        <p>SN 자릿수 설정</p>
+        <span class="home-card-arrow">&rarr;</span>
+    </a>
+</main>
+{% endblock %}

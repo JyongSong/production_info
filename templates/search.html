@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}조회 및 다운로드 — SN 매칭 관리 툴{% endblock %}
+
+{% block header %}
+<header class="hero">
+    <div>
+        <a href="/" class="back-link">&larr; 메인으로</a>
+        <h1>조회 및 다운로드</h1>
+        <p class="hero-text">Lumi SN, Solity SN, 날짜별 조회 및 엑셀 다운로드를 지원합니다.</p>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<main>
+    <section class="panel search-panel-full">
+        <form id="searchForm" class="search-grid" autocomplete="off" onsubmit="return false;">
+            <label class="field">
+                <span>Lumi SN 검색</span>
+                <input id="searchFirstQr" name="search_first_qr" type="text" placeholder="부분 검색 가능">
+            </label>
+
+            <label class="field">
+                <span>Solity SN 검색</span>
+                <input id="searchSecondQr" name="search_second_qr" type="text" placeholder="부분 검색 가능">
+            </label>
+
+            <label class="field">
+                <span>날짜별 조회</span>
+                <input id="searchDate" name="search_date" type="date">
+            </label>
+
+            <div class="button-row search-buttons">
+                <button class="primary-button" type="submit">조회</button>
+                <button id="resetSearchButton" class="secondary-button" type="button">조건 초기화</button>
+                <button id="downloadAllButton" class="ghost-button" type="button">전체 엑셀 다운로드</button>
+                <button id="downloadDateButton" class="ghost-button" type="button">날짜별 엑셀 다운로드</button>
+            </div>
+        </form>
+
+        <div id="searchSummary" class="search-summary">조회 결과가 여기에 표시됩니다.</div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>번호</th>
+                        <th>Lumi SN</th>
+                        <th>Solity SN</th>
+                        <th>등록일시</th>
+                        <th>작업자명</th>
+                        <th>비고</th>
+                        <th>관리</th>
+                    </tr>
+                </thead>
+                <tbody id="searchTableBody">
+                    <tr class="empty-row">
+                        <td colspan="7">검색 조건을 입력하고 조회해주세요.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<div id="editModal" class="modal-overlay" hidden>
+    <div class="modal-card">
+        <div class="modal-head">
+            <div>
+                <p class="modal-eyebrow">등록값 수정</p>
+                <h2>SN 매칭 수정</h2>
+            </div>
+            <button id="closeEditModalButton" class="modal-close" type="button" aria-label="수정 창 닫기">닫기</button>
+        </div>
+
+        <div id="editMeta" class="modal-meta">등록일시: -</div>
+        <div id="editMessage" class="inline-message info">수정할 내용을 입력한 뒤 저장해주세요.</div>
+
+        <form id="editForm" class="form-grid edit-form" autocomplete="off" onsubmit="return false;">
+            <input id="editId" type="hidden">
+
+            <label class="field">
+                <span>Lumi SN</span>
+                <input id="editFirstQr" type="text" placeholder="Lumi SN">
+            </label>
+
+            <label class="field">
+                <span>Solity SN</span>
+                <input id="editSecondQr" type="text" placeholder="Solity SN">
+            </label>
+
+            <label class="field optional-field">
+                <span>작업자명 (옵션)</span>
+                <input id="editOperatorName" type="text" placeholder="예: 홍길동">
+            </label>
+
+            <label class="field optional-field">
+                <span>비고 (옵션)</span>
+                <input id="editNote" type="text" placeholder="필요 시만 입력">
+            </label>
+
+            <div class="button-row">
+                <button id="editSaveButton" class="primary-button" type="submit">수정 저장</button>
+                <button id="cancelEditButton" class="secondary-button" type="button">취소</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js', v=js_version) }}"></script>
+{% endblock %}

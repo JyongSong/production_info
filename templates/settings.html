@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}설정 — SN 매칭 관리 툴{% endblock %}
+
+{% block header %}
+<header class="hero">
+    <div>
+        <a href="/" class="back-link">&larr; 메인으로</a>
+        <h1>설정</h1>
+        <p class="hero-text">SN 자릿수 설정을 관리합니다.</p>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<main>
+    <section class="panel settings-panel-full">
+        <div class="section-head">
+            <h2>SN 자릿수 설정</h2>
+            <p>0으로 저장하면 자릿수 강제를 사용하지 않습니다.</p>
+        </div>
+
+        <div id="settingsStatus" class="status-message info" style="margin-top:0;margin-bottom:18px;">현재 설정을 확인하고 필요 시 변경해주세요.</div>
+
+        <form id="settingsForm" class="settings-grid" autocomplete="off" onsubmit="return false;">
+            <label class="field compact-field">
+                <span>Lumi SN 자릿수</span>
+                <input id="firstQrLength" type="number" min="0" max="999" inputmode="numeric" value="{{ qr_settings.first_qr_length }}">
+            </label>
+
+            <label class="field compact-field">
+                <span>Solity SN 자릿수</span>
+                <input id="secondQrLength" type="number" min="0" max="999" inputmode="numeric" value="{{ qr_settings.second_qr_length }}">
+            </label>
+
+            <div class="button-row settings-buttons">
+                <button id="saveSettingsButton" class="primary-button" type="submit">자릿수 저장</button>
+            </div>
+        </form>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script id="initialQrSettings" type="application/json">{{ qr_settings | tojson }}</script>
+<script src="{{ url_for('static', filename='js/app.js', v=js_version) }}"></script>
+{% endblock %}
