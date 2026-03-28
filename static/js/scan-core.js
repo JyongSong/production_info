@@ -88,8 +88,7 @@
                 if (!isValid) {
                     setStatus("error", message || "등록되지 않은 Lumi SN입니다.");
                     if (window.snSound) { window.snSound.playError(); }
-                    firstQrInput.focus();
-                    firstQrInput.select();
+                    selectInputDeferred(firstQrInput);
                     return;
                 }
 
@@ -127,8 +126,7 @@
                     if (!isValid) {
                         setStatus("error", message || "등록되지 않은 Lumi SN입니다.");
                         if (window.snSound) { window.snSound.playError(); }
-                        firstQrInput.focus();
-                        firstQrInput.select();
+                        selectInputDeferred(firstQrInput);
                         return;
                     }
                     clearFirstQrTimer();
@@ -323,17 +321,22 @@
             return true;
         }
 
+        function selectInputDeferred(inputElement) {
+            setTimeout(function () {
+                inputElement.focus();
+                inputElement.select();
+            }, 0);
+        }
+
         function validatePair(firstQr, secondQr) {
             if (!validateSingleQr(firstQr, "Lumi SN")) {
-                firstQrInput.focus();
-                firstQrInput.select();
+                selectInputDeferred(firstQrInput);
                 return false;
             }
 
             if (!validateSolitySn(secondQr)) {
                 if (window.snSound) { window.snSound.playError(); }
-                secondQrInput.focus();
-                secondQrInput.select();
+                selectInputDeferred(secondQrInput);
                 return false;
             }
 
