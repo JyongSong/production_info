@@ -304,12 +304,34 @@
             }
         }
 
+        function validateSolitySn(value) {
+            if (!value) {
+                setStatus("error", "Solity SN을(를) 입력해주세요.");
+                return false;
+            }
+            if (value.length !== 13) {
+                setStatus("error", "Solity SN은 13자리여야 합니다.");
+                return false;
+            }
+            if (value.indexOf("AK") !== 0) {
+                setStatus("error", "Solity SN은 'AK'로 시작해야 합니다.");
+                return false;
+            }
+            if (value.indexOf("TAK", value.length - 3) === -1) {
+                setStatus("error", "Solity SN은 'TAK'로 끝나야 합니다.");
+                return false;
+            }
+            return true;
+        }
+
         function validatePair(firstQr, secondQr) {
             if (!validateSingleQr(firstQr, "Lumi SN")) {
                 return false;
             }
 
-            if (!validateSingleQr(secondQr, "Solity SN")) {
+            if (!validateSolitySn(secondQr)) {
+                secondQrInput.focus();
+                secondQrInput.select();
                 return false;
             }
 
@@ -349,10 +371,8 @@
                 return;
             }
 
-            if (!isValidLength(secondQr, "Solity SN")) {
-                secondQrInput.focus();
-                secondQrInput.select();
-            }
+            secondQrInput.focus();
+            secondQrInput.select();
         }
 
         function resetScanInputs(keepOperatorName, focusFirst) {

@@ -281,9 +281,29 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function validateSolitySn(value, messageSetter) {
+        if (!value) {
+            messageSetter("error", "Solity SN을(를) 입력해주세요.");
+            return false;
+        }
+        if (value.length !== 13) {
+            messageSetter("error", "Solity SN은 13자리여야 합니다.");
+            return false;
+        }
+        if (!value.startsWith("AK")) {
+            messageSetter("error", "Solity SN은 'AK'로 시작해야 합니다.");
+            return false;
+        }
+        if (!value.endsWith("TAK")) {
+            messageSetter("error", "Solity SN은 'TAK'로 끝나야 합니다.");
+            return false;
+        }
+        return true;
+    }
+
     function validatePair(firstQr, secondQr, messageSetter) {
         if (!validateSingleQr(firstQr, "Lumi SN", messageSetter)) return false;
-        if (!validateSingleQr(secondQr, "Solity SN", messageSetter)) return false;
+        if (!validateSolitySn(secondQr, messageSetter)) return false;
         if (firstQr === secondQr) {
             messageSetter("error", "동일한 값 2개는 한 세트로 저장할 수 없습니다.");
             return false;

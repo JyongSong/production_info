@@ -82,6 +82,16 @@ def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _validate_solity_sn_format(solity_sn: str) -> None:
+    """Solity SN must be 13 characters, start with 'AK', and end with 'TAK'."""
+    if len(solity_sn) != 13:
+        raise ValidationError("Solity SN은 13자리여야 합니다.")
+    if not solity_sn.startswith("AK"):
+        raise ValidationError("Solity SN은 'AK'로 시작해야 합니다.")
+    if not solity_sn.endswith("TAK"):
+        raise ValidationError("Solity SN은 'TAK'로 끝나야 합니다.")
+
+
 def validate_match_input(first_qr: str, second_qr: str) -> None:
     from .settings_service import get_qr_settings
 
@@ -90,19 +100,14 @@ def validate_match_input(first_qr: str, second_qr: str) -> None:
 
     settings = get_qr_settings()
     first_qr_length = settings["first_qr_length"]
-    second_qr_length = settings["second_qr_length"]
 
     if first_qr_length > 0 and len(first_qr) != first_qr_length:
         raise ValidationError(f"Lumi SN은 {first_qr_length}자리여야 합니다.")
 
-    if second_qr_length > 0 and len(second_qr) != second_qr_length:
-        raise ValidationError(f"Solity SN은 {second_qr_length}자리여야 합니다.")
-
     if first_qr_length == 0 and len(first_qr) < MIN_QR_LENGTH:
         raise ValidationError(f"Lumi SN은 최소 {MIN_QR_LENGTH}자 이상이어야 합니다.")
 
-    if second_qr_length == 0 and len(second_qr) < MIN_QR_LENGTH:
-        raise ValidationError(f"Solity SN은 최소 {MIN_QR_LENGTH}자 이상이어야 합니다.")
+    _validate_solity_sn_format(second_qr)
 
     if first_qr == second_qr:
         raise ValidationError("동일한 값 2개는 한 세트로 저장할 수 없습니다.")
