@@ -139,6 +139,20 @@ def check_lumi_sn_exists(lumi_sn: str) -> bool:
     return bool(rows)
 
 
+def check_lumi_sn_already_used(lumi_sn: str) -> bool:
+    """Return True if the Lumi SN is already used in production_records."""
+    lumi_sn = normalize_text(lumi_sn)
+    if not lumi_sn:
+        return False
+    rows = db.select(
+        TABLE,
+        columns="id",
+        filters={"lumi_sn": f"eq.{lumi_sn}"},
+        limit=1,
+    )
+    return bool(rows)
+
+
 def _validate_duplicate_rules(
     first_qr: str,
     second_qr: str,

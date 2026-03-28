@@ -182,7 +182,6 @@
             }
 
             if (!validatePair(firstQr, secondQr)) {
-                focusInvalidField(firstQr, secondQr);
                 return;
             }
 
@@ -326,10 +325,13 @@
 
         function validatePair(firstQr, secondQr) {
             if (!validateSingleQr(firstQr, "Lumi SN")) {
+                firstQrInput.focus();
+                firstQrInput.select();
                 return false;
             }
 
             if (!validateSolitySn(secondQr)) {
+                if (window.snSound) { window.snSound.playError(); }
                 secondQrInput.focus();
                 secondQrInput.select();
                 return false;

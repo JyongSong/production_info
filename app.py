@@ -18,6 +18,7 @@ from services import (
     InvalidLumiSnError,
     NotFoundError,
     ValidationError,
+    check_lumi_sn_already_used,
     check_lumi_sn_exists,
     count_matches_by_date,
     create_match,
@@ -232,10 +233,11 @@ def validate_lumi_sn_api():
     lumi_sn = (request.args.get("sn", "") or "").strip()
     if not lumi_sn:
         return jsonify({"valid": False, "message": "Lumi SN을 입력해주세요."}), 400
-    exists = check_lumi_sn_exists(lumi_sn)
-    if exists:
-        return jsonify({"valid": True})
-    return jsonify({"valid": False, "message": "등록되지 않은 Lumi SN입니다."})
+    if not check_lumi_sn_exists(lumi_sn):
+        return jsonify({"valid": False, "message": "등록되지 않은 Lumi SN입니다."})
+    if check_lumi_sn_already_used(lumi_sn):
+        return jsonify({"valid": False, "message": "이미 사용된 Lumi SN입니다."})
+    return jsonify({"valid": True})
 
 
 @app.get("/api/settings")
