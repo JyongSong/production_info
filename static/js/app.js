@@ -204,6 +204,17 @@ document.addEventListener("DOMContentLoaded", () => {
     /* ------------------------------------------------------------------
      * Core functions
      * ----------------------------------------------------------------*/
+    async function validateLumiSnAsync(snValue) {
+        try {
+            const response = await fetch(`/api/validate-lumi-sn?sn=${encodeURIComponent(snValue)}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            // On network error, allow to proceed (server will validate again on save)
+            return { valid: true };
+        }
+    }
+
     async function submitEdit() {
         if (isUpdating) return;
 
@@ -215,6 +226,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!validatePair(firstQr, secondQr, setEditMessage)) {
             focusInvalidEditField(firstQr, secondQr);
+            return;
+        }
+
+        // Validate Lumi SN exists in lumi_product_sn table
+        const lumiValidation = await validateLumiSnAsync(firstQr);
+        if (!lumiValidation.valid) {
+            setEditMessage("error", lumiValidation.message || "등록되지 않은 Lumi SN입니다.");
+            editFirstQrInput.focus();
+            editFirstQrInput.select();
             return;
         }
 

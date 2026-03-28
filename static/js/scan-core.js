@@ -77,15 +77,27 @@
                 event.stopImmediatePropagation();
             }
 
-            if (!validateSingleQr(trimValue(firstQrInput.value), "Lumi SN")) {
+            var value = trimValue(firstQrInput.value);
+            if (!validateSingleQr(value, "Lumi SN")) {
                 firstQrInput.focus();
                 return;
             }
 
-            clearFirstQrTimer();
-            secondQrInput.focus();
-            secondQrInput.select();
-            setStatus("info", "Solity SN을 스캔해주세요.");
+            // Validate Lumi SN exists in lumi_product_sn table
+            validateLumiSnFromServer(value, function (isValid, message) {
+                if (!isValid) {
+                    setStatus("error", message || "등록되지 않은 Lumi SN입니다.");
+                    if (window.snSound) { window.snSound.playError(); }
+                    firstQrInput.focus();
+                    firstQrInput.select();
+                    return;
+                }
+
+                clearFirstQrTimer();
+                secondQrInput.focus();
+                secondQrInput.select();
+                setStatus("info", "Solity SN을 스캔해주세요.");
+            });
         }
 
         function handleSecondQrEnter(event) {
@@ -108,11 +120,22 @@
                 event.stopImmediatePropagation();
             }
 
-            if (!trimValue(secondQrInput.value) && validateSingleQr(trimValue(firstQrInput.value), "Lumi SN")) {
-                clearFirstQrTimer();
-                secondQrInput.focus();
-                secondQrInput.select();
-                setStatus("info", "Solity SN을 스캔해주세요.");
+            var firstQrValue = trimValue(firstQrInput.value);
+
+            if (!trimValue(secondQrInput.value) && validateSingleQr(firstQrValue, "Lumi SN")) {
+                validateLumiSnFromServer(firstQrValue, function (isValid, message) {
+                    if (!isValid) {
+                        setStatus("error", message || "등록되지 않은 Lumi SN입니다.");
+                        if (window.snSound) { window.snSound.playError(); }
+                        firstQrInput.focus();
+                        firstQrInput.select();
+                        return;
+                    }
+                    clearFirstQrTimer();
+                    secondQrInput.focus();
+                    secondQrInput.select();
+                    setStatus("info", "Solity SN을 스캔해주세요.");
+                });
                 return;
             }
 
@@ -453,6 +476,37 @@
                 return 0;
             }
             return number;
+        }
+
+        function validateLumiSnFromServer(snValue, callback) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/api/validate-lumi-sn?sn=" + encodeURIComponent(snValue), true);
+
+            xhr.onreadystatechange = function () {
+                var data;
+                if (xhr.readyState !== 4) {
+                    return;
+                }
+
+                try {
+                    data = JSON.parse(xhr.responseText || "{}");
+                } catch (error) {
+                    data = {};
+                }
+
+                if (data.valid) {
+                    callback(true);
+                } else {
+                    callback(false, data.message || "등록되지 않은 Lumi SN입니다.");
+                }
+            };
+
+            xhr.onerror = function () {
+                // On network error, allow save to proceed (server will validate again)
+                callback(true);
+            };
+
+            xhr.send();
         }
 
         function restoreOperatorName() {

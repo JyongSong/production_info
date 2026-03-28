@@ -15,8 +15,10 @@ from services import (
     DuplicatePairError,
     DuplicateQRCodeError,
     DuplicateSaveError,
+    InvalidLumiSnError,
     NotFoundError,
     ValidationError,
+    check_lumi_sn_exists,
     count_matches_by_date,
     create_match,
     delete_match,
@@ -173,6 +175,8 @@ def save_match():
         return jsonify(build_dashboard_payload("매칭이 저장되었습니다.", saved_match))
     except ValidationError as error:
         return jsonify({"success": False, "message": str(error)}), 400
+    except InvalidLumiSnError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
     except DuplicatePairError as error:
         return jsonify({"success": False, "message": str(error)}), 409
     except DuplicateQRCodeError as error:
@@ -200,6 +204,8 @@ def update_match_api(match_id: int):
         return jsonify({"success": False, "message": str(error)}), 404
     except ValidationError as error:
         return jsonify({"success": False, "message": str(error)}), 400
+    except InvalidLumiSnError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
     except DuplicatePairError as error:
         return jsonify({"success": False, "message": str(error)}), 409
     except DuplicateQRCodeError as error:
@@ -219,6 +225,17 @@ def delete_match_api(match_id: int):
         return jsonify({"success": False, "message": str(error)}), 404
     except Exception:
         return jsonify({"success": False, "message": "삭제 중 오류가 발생했습니다."}), 500
+
+
+@app.get("/api/validate-lumi-sn")
+def validate_lumi_sn_api():
+    lumi_sn = (request.args.get("sn", "") or "").strip()
+    if not lumi_sn:
+        return jsonify({"valid": False, "message": "Lumi SN을 입력해주세요."}), 400
+    exists = check_lumi_sn_exists(lumi_sn)
+    if exists:
+        return jsonify({"valid": True})
+    return jsonify({"valid": False, "message": "등록되지 않은 Lumi SN입니다."})
 
 
 @app.get("/api/settings")

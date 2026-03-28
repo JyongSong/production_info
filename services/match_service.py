@@ -16,6 +16,7 @@ SEARCH_LIMIT = 200
 
 TABLE = "production_records"
 USED_TABLE = "used_sn_codes"
+LUMI_PRODUCT_TABLE = "lumi_product_sn"
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +41,10 @@ class DuplicateQRCodeError(MatchServiceError):
 
 class DuplicateSaveError(MatchServiceError):
     """Raised when the save operation violates a duplicate rule."""
+
+
+class InvalidLumiSnError(MatchServiceError):
+    """Raised when the Lumi SN does not exist in lumi_product_sn table."""
 
 
 class NotFoundError(MatchServiceError):
@@ -101,6 +106,32 @@ def validate_match_input(first_qr: str, second_qr: str) -> None:
 
     if first_qr == second_qr:
         raise ValidationError("동일한 값 2개는 한 세트로 저장할 수 없습니다.")
+
+
+def _validate_lumi_sn_exists(lumi_sn: str) -> None:
+    """Check that the given Lumi SN exists in the lumi_product_sn table."""
+    rows = db.select(
+        LUMI_PRODUCT_TABLE,
+        columns="lumi_sn",
+        filters={"lumi_sn": f"eq.{lumi_sn}"},
+        limit=1,
+    )
+    if not rows:
+        raise InvalidLumiSnError("등록되지 않은 Lumi SN입니다. 유효한 Lumi SN을 입력해주세요.")
+
+
+def check_lumi_sn_exists(lumi_sn: str) -> bool:
+    """Return True if the Lumi SN exists in the lumi_product_sn table."""
+    lumi_sn = normalize_text(lumi_sn)
+    if not lumi_sn:
+        return False
+    rows = db.select(
+        LUMI_PRODUCT_TABLE,
+        columns="lumi_sn",
+        filters={"lumi_sn": f"eq.{lumi_sn}"},
+        limit=1,
+    )
+    return bool(rows)
 
 
 def _validate_duplicate_rules(
@@ -165,6 +196,7 @@ def create_match(
     note = normalize_text(note)
 
     validate_match_input(first_qr, second_qr)
+    _validate_lumi_sn_exists(first_qr)
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     _validate_duplicate_rules(first_qr, second_qr)
@@ -206,6 +238,7 @@ def update_match(
     note = normalize_text(note)
 
     validate_match_input(first_qr, second_qr)
+    _validate_lumi_sn_exists(first_qr)
 
     # Verify record exists
     existing = db.select(TABLE, columns="id", filters={"id": f"eq.{match_id}"}, limit=1)
