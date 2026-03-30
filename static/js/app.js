@@ -3,9 +3,18 @@ document.addEventListener("DOMContentLoaded", () => {
      * Element references (null-safe for pages that don't have them)
      * ----------------------------------------------------------------*/
     const settingsForm = document.getElementById("settingsForm");
-    const firstQrLengthInput = document.getElementById("firstQrLength");
     const secondQrLengthInput = document.getElementById("secondQrLength");
     const saveSettingsButton = document.getElementById("saveSettingsButton");
+
+    /* Lumi SN upload elements */
+    const uploadArea = document.getElementById("uploadArea");
+    const lumiSnFileInput = document.getElementById("lumiSnFile");
+    const uploadLumiSnButton = document.getElementById("uploadLumiSnButton");
+    const fileInfo = document.getElementById("fileInfo");
+    const fileName = document.getElementById("fileName");
+    const removeFileButton = document.getElementById("removeFileButton");
+    const uploadStatus = document.getElementById("uploadStatus");
+    const lumiSnCount = document.getElementById("lumiSnCount");
     const refreshRecentButton = document.getElementById("refreshRecentButton");
     const recentTableBody = document.getElementById("recentTableBody");
     const todayCount = document.getElementById("todayCount");
@@ -57,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (downloadDateButton && searchDateInput) {
         updateDownloadDateButton();
     }
-    if (firstQrLengthInput && secondQrLengthInput) {
+    if (secondQrLengthInput) {
         syncSettingsInputs();
     }
 
@@ -98,6 +107,113 @@ document.addEventListener("DOMContentLoaded", () => {
             event.preventDefault();
             await saveQrSettings();
         });
+    }
+
+    /* ------------------------------------------------------------------
+     * Lumi SN file upload (settings page)
+     * ----------------------------------------------------------------*/
+    let selectedFile = null;
+
+    if (uploadArea) {
+        uploadArea.addEventListener("click", () => {
+            if (lumiSnFileInput) lumiSnFileInput.click();
+        });
+
+        uploadArea.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            uploadArea.classList.add("upload-area-dragover");
+        });
+
+        uploadArea.addEventListener("dragleave", () => {
+            uploadArea.classList.remove("upload-area-dragover");
+        });
+
+        uploadArea.addEventListener("drop", (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove("upload-area-dragover");
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFileSelect(files[0]);
+        });
+    }
+
+    if (lumiSnFileInput) {
+        lumiSnFileInput.addEventListener("change", () => {
+            if (lumiSnFileInput.files.length > 0) {
+                handleFileSelect(lumiSnFileInput.files[0]);
+            }
+        });
+    }
+
+    if (removeFileButton) {
+        removeFileButton.addEventListener("click", () => {
+            clearFileSelection();
+        });
+    }
+
+    if (uploadLumiSnButton) {
+        uploadLumiSnButton.addEventListener("click", async () => {
+            await uploadLumiSnFile();
+        });
+    }
+
+    function handleFileSelect(file) {
+        if (!file.name.toLowerCase().endsWith(".xlsx")) {
+            setUploadStatus("error", ".xlsx 파일만 업로드할 수 있습니다.");
+            return;
+        }
+        selectedFile = file;
+        if (fileName) fileName.textContent = file.name;
+        if (fileInfo) fileInfo.hidden = false;
+        if (uploadArea) uploadArea.hidden = true;
+        if (uploadLumiSnButton) uploadLumiSnButton.disabled = false;
+    }
+
+    function clearFileSelection() {
+        selectedFile = null;
+        if (lumiSnFileInput) lumiSnFileInput.value = "";
+        if (fileInfo) fileInfo.hidden = true;
+        if (uploadArea) uploadArea.hidden = false;
+        if (uploadLumiSnButton) uploadLumiSnButton.disabled = true;
+    }
+
+    function setUploadStatus(type, message) {
+        if (uploadStatus) {
+            uploadStatus.className = `status-message ${type}`;
+            uploadStatus.innerHTML = message;
+        }
+    }
+
+    async function uploadLumiSnFile() {
+        if (!selectedFile) return;
+
+        if (uploadLumiSnButton) uploadLumiSnButton.disabled = true;
+        setUploadStatus("info", "업로드 중...");
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        try {
+            const response = await fetch("/api/upload-lumi-sn", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await readApiResponse(response);
+            if (!response.ok) {
+                setUploadStatus("error", data.message || "업로드에 실패했습니다.");
+                if (uploadLumiSnButton) uploadLumiSnButton.disabled = false;
+                return;
+            }
+
+            setUploadStatus("success",
+                `${data.message} 현재 등록된 SN: <strong>${data.count}</strong>건`
+            );
+            if (lumiSnCount) lumiSnCount.textContent = String(data.count);
+            clearFileSelection();
+        } catch (error) {
+            setUploadStatus("error", "업로드 중 오류가 발생했습니다.");
+            if (uploadLumiSnButton) uploadLumiSnButton.disabled = false;
+        }
     }
 
     /* ------------------------------------------------------------------
@@ -340,10 +456,9 @@ document.addEventListener("DOMContentLoaded", () => {
     async function saveQrSettings() {
         if (isSavingSettings) return;
 
-        const firstQrLength = normalizeLengthValue(firstQrLengthInput.value);
-        const secondQrLength = normalizeLengthValue(secondQrLengthInput.value);
+        const secondQrLength = normalizeLengthValue(secondQrLengthInput ? secondQrLengthInput.value : "0");
 
-        if (firstQrLength === null || secondQrLength === null) {
+        if (secondQrLength === null) {
             setSettingsStatus("error", "자릿수는 0 이상의 숫자로 입력해주세요.");
             return;
         }
@@ -356,7 +471,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    first_qr_length: firstQrLength,
+                    first_qr_length: qrSettings.first_qr_length,
                     second_qr_length: secondQrLength,
                 }),
             });
@@ -611,7 +726,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function syncSettingsInputs() {
-        if (firstQrLengthInput) firstQrLengthInput.value = String(qrSettings.first_qr_length);
         if (secondQrLengthInput) secondQrLengthInput.value = String(qrSettings.second_qr_length);
     }
 

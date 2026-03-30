@@ -10,6 +10,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+import supabase_client as db
 from database import initialize_database
 from services import (
     DuplicatePairError,
@@ -30,6 +31,8 @@ from services import (
     update_match,
     update_qr_settings,
 )
+
+LUMI_PRODUCT_TABLE = "lumi_product_sn"
 
 
 app = Flask(__name__)
@@ -154,9 +157,17 @@ def search_page():
 
 @app.get("/settings")
 def settings_page():
+    # Count existing Lumi SN entries
+    try:
+        rows = db.select(LUMI_PRODUCT_TABLE, columns="lumi_sn")
+        lumi_sn_count = len(rows)
+    except Exception:
+        lumi_sn_count = 0
+
     return render_template(
         "settings.html",
         qr_settings=get_qr_settings(),
+        lumi_sn_count=lumi_sn_count,
         **_common_versions(),
     )
 
@@ -287,6 +298,128 @@ def search_matches_api():
         return jsonify({"matches": matches, "count": len(matches)})
     except ValidationError as error:
         return jsonify({"success": False, "message": str(error)}), 400
+
+
+@app.post("/api/upload-lumi-sn")
+def upload_lumi_sn():
+    """Upload an Excel file, convert to CSV-like data, and replace lumi_product_sn table."""
+    if "file" not in request.files:
+        return jsonify({"success": False, "message": "파일이 첨부되지 않았습니다."}), 400
+
+    file = request.files["file"]
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
+        return jsonify({"success": False, "message": ".xlsx 파일만 업로드할 수 있습니다."}), 400
+
+    try:
+        from openpyxl import load_workbook
+
+        wb = load_workbook(file, read_only=True, data_only=True)
+        ws = wb.active
+
+        # Read header row
+        headers = []
+        for cell in next(ws.iter_rows(min_row=1, max_row=1)):
+            headers.append(str(cell.value or "").strip().lower())
+
+        if "lumi_sn" not in headers:
+            wb.close()
+            return jsonify({"success": False, "message": "Excel 파일에 'lumi_sn' 열이 필요합니다."}), 400
+
+        sn_col_idx = headers.index("lumi_sn")
+        time_col_idx = headers.index("time") if "time" in headers else None
+
+        # Read data rows
+        rows_to_insert = []
+        seen = set()
+        for row in ws.iter_rows(min_row=2):
+            sn_value = str(row[sn_col_idx].value or "").strip()
+            if not sn_value or sn_value in seen:
+                continue
+            seen.add(sn_value)
+
+            record = {"lumi_sn": sn_value}
+            if time_col_idx is not None:
+                time_val = row[time_col_idx].value
+                if time_val is not None:
+                    record["time"] = str(time_val).strip()
+                else:
+                    record["time"] = ""
+            rows_to_insert.append(record)
+
+        wb.close()
+
+        if not rows_to_insert:
+            return jsonify({"success": False, "message": "유효한 데이터가 없습니다."}), 400
+
+        # Delete all existing rows from lumi_product_sn
+        try:
+            db.delete(LUMI_PRODUCT_TABLE, "lumi_sn=neq.___impossible___")
+        except Exception:
+            pass  # Table might be empty
+
+        # Insert in batches of 500
+        batch_size = 500
+        for i in range(0, len(rows_to_insert), batch_size):
+            batch = rows_to_insert[i : i + batch_size]
+            db.insert(LUMI_PRODUCT_TABLE, batch)
+
+        return jsonify({
+            "success": True,
+            "message": f"Lumi SN {len(rows_to_insert)}건이 업로드되었습니다.",
+            "count": len(rows_to_insert),
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "message": f"파일 처리 중 오류: {str(e)}"}), 500
+
+
+@app.get("/api/lumi-sn-sample")
+def download_lumi_sn_sample():
+    """Download a sample Excel file based on lumi_product_sn table headers and first 10 rows."""
+    try:
+        rows = db.select(
+            LUMI_PRODUCT_TABLE,
+            columns="lumi_sn,time",
+            limit=10,
+        )
+    except Exception:
+        rows = []
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "lumi_product_sn"
+
+    # Headers
+    sample_headers = ["lumi_sn", "time"]
+    worksheet.append(sample_headers)
+
+    header_fill = PatternFill(fill_type="solid", start_color="123C52", end_color="123C52")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in worksheet[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+
+    # Data rows
+    for row in rows:
+        worksheet.append([
+            row.get("lumi_sn", ""),
+            row.get("time", ""),
+        ])
+
+    worksheet.column_dimensions["A"].width = 30
+    worksheet.column_dimensions["B"].width = 22
+    worksheet.freeze_panes = "A2"
+
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name="lumi_sn_sample.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @app.get("/download.xlsx")
