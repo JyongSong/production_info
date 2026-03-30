@@ -20,12 +20,16 @@ from services import (
     count_matches_by_date,
     create_match,
     delete_match,
+    delete_all_lumi_sn,
+    get_lumi_sn_count,
+    get_lumi_sn_list,
     get_qr_settings,
     get_recent_matches,
     list_matches_for_export,
     search_matches,
     update_match,
     update_qr_settings,
+    upload_lumi_sn_file,
 )
 
 
@@ -153,7 +157,8 @@ def search_page():
 def settings_page():
     return render_template(
         "settings.html",
-        qr_settings=get_qr_settings(),
+        sn_count=get_lumi_sn_count(),
+        sn_list=get_lumi_sn_list(limit=200),
         **_common_versions(),
     )
 
@@ -287,6 +292,45 @@ def download_excel():
         )
     except ValidationError as error:
         return jsonify({"success": False, "message": str(error)}), 400
+
+
+@app.post("/api/upload-sn")
+def upload_sn_api():
+    uploaded_file = request.files.get("file")
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify({"success": False, "message": "파일을 선택해주세요."}), 400
+
+    try:
+        file_bytes = uploaded_file.read()
+        result = upload_lumi_sn_file(uploaded_file.filename, file_bytes)
+        return jsonify({
+            "success": True,
+            "message": f"총 {result['unique_count']}개의 Lumi SN이 업로드되었습니다.",
+            "result": result,
+            "sn_list": get_lumi_sn_list(limit=200),
+            "sn_count": result["unique_count"],
+        })
+    except ValidationError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+    except Exception:
+        return jsonify({"success": False, "message": "업로드 중 오류가 발생했습니다."}), 500
+
+
+@app.get("/api/lumi-sn")
+def lumi_sn_list_api():
+    return jsonify({
+        "sn_list": get_lumi_sn_list(limit=200),
+        "sn_count": get_lumi_sn_count(),
+    })
+
+
+@app.delete("/api/lumi-sn")
+def delete_lumi_sn_api():
+    try:
+        delete_all_lumi_sn()
+        return jsonify({"success": True, "message": "Lumi SN 목록이 삭제되었습니다."})
+    except Exception:
+        return jsonify({"success": False, "message": "삭제 중 오류가 발생했습니다."}), 500
 
 
 if __name__ == "__main__":

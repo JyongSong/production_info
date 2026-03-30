@@ -580,14 +580,20 @@ tbody tr:hover {
 .back-link {
     display: inline-block;
     margin-bottom: 10px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--accent);
+    padding: 12px 28px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #ffffff;
     text-decoration: none;
+    background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+    border-radius: 16px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 8px 20px rgba(18, 60, 82, 0.18);
 }
 
 .back-link:hover {
-    text-decoration: underline;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(18, 60, 82, 0.24);
 }
 
 /* ── Full-width panels for sub-pages ─────── */

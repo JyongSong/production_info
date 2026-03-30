@@ -1,13 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}설정 — SN 매칭 관리 툴{% endblock %}
+{% block title %}Lumi SN 업로드 — SN 입력 툴{% endblock %}
 
 {% block header %}
 <header class="hero">
     <div>
-        <a href="/" class="back-link">&larr; 메인으로</a>
-        <h1>설정</h1>
-        <p class="hero-text">SN 자릿수 설정을 관리합니다.</p>
+        <a href="/" class="back-link">메인으로</a>
+        <h1>Lumi SN 업로드</h1>
     </div>
 </header>
 {% endblock %}
@@ -16,32 +15,140 @@
 <main>
     <section class="panel settings-panel-full">
         <div class="section-head">
-            <h2>SN 자릿수 설정</h2>
-            <p>0으로 저장하면 자릿수 강제를 사용하지 않습니다.</p>
+            <h2>Lumi SN 목록 업로드</h2>
+            <p>엑셀 또는 CSV 파일의 첫 번째 열에서 SN을 읽어옵니다.</p>
         </div>
 
-        <div id="settingsStatus" class="status-message info" style="margin-top:0;margin-bottom:18px;">현재 설정을 확인하고 필요 시 변경해주세요.</div>
+        <div id="uploadStatus" class="status-message info" style="margin-top:0;margin-bottom:18px;">
+            {% if sn_count > 0 %}
+                현재 {{ sn_count }}개의 Lumi SN이 등록되어 있습니다.
+            {% else %}
+                파일을 선택하여 업로드해주세요.
+            {% endif %}
+        </div>
 
-        <form id="settingsForm" class="settings-grid" autocomplete="off" onsubmit="return false;">
-            <label class="field compact-field">
-                <span>Lumi SN 자릿수</span>
-                <input id="firstQrLength" type="number" min="0" max="999" inputmode="numeric" value="{{ qr_settings.first_qr_length }}">
-            </label>
-
-            <label class="field compact-field">
-                <span>Solity SN 자릿수</span>
-                <input id="secondQrLength" type="number" min="0" max="999" inputmode="numeric" value="{{ qr_settings.second_qr_length }}">
+        <form id="uploadForm" autocomplete="off" onsubmit="return false;">
+            <label class="field compact-field" style="margin-bottom:18px;">
+                <span>Lumi SN 목록 파일 (.xlsx / .csv)</span>
+                <input id="snFileInput" type="file" accept=".xlsx,.xls,.csv" style="height:58px;padding:12px 20px;border:2px solid rgba(18,60,82,0.18);border-radius:18px;font-size:1rem;font-weight:700;background:rgba(255,255,255,0.92);">
             </label>
 
             <div class="button-row settings-buttons">
-                <button id="saveSettingsButton" class="primary-button" type="submit">자릿수 저장</button>
+                <button id="uploadButton" class="primary-button" type="submit">업로드</button>
+                {% if sn_count > 0 %}
+                <button id="deleteAllButton" class="secondary-button" type="button">전체 삭제</button>
+                {% endif %}
             </div>
         </form>
     </section>
+
+    {% if sn_list %}
+    <section class="panel settings-panel-full" style="margin-top:20px;">
+        <div class="section-head">
+            <h2>등록된 Lumi SN 목록</h2>
+            <p>총 {{ sn_count }}건{% if sn_count > 200 %} (최근 200건 표시){% endif %}</p>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:80px;">번호</th>
+                        <th>Lumi SN</th>
+                        <th style="width:200px;">업로드 일시</th>
+                    </tr>
+                </thead>
+                <tbody id="snTableBody">
+                    {% for item in sn_list %}
+                    <tr>
+                        <td>{{ item.id }}</td>
+                        <td>{{ item.sn_value }}</td>
+                        <td>{{ item.uploaded_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
 </main>
 {% endblock %}
 
 {% block scripts %}
-<script id="initialQrSettings" type="application/json">{{ qr_settings | tojson }}</script>
-<script src="{{ url_for('static', filename='js/app.js', v=js_version) }}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const uploadForm = document.getElementById("uploadForm");
+    const fileInput = document.getElementById("snFileInput");
+    const uploadButton = document.getElementById("uploadButton");
+    const deleteAllButton = document.getElementById("deleteAllButton");
+    const uploadStatus = document.getElementById("uploadStatus");
+
+    let isUploading = false;
+
+    function setStatus(type, message) {
+        if (!uploadStatus) return;
+        uploadStatus.className = "status-message " + type;
+        uploadStatus.textContent = message;
+    }
+
+    if (uploadForm) {
+        uploadForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (isUploading) return;
+
+            if (!fileInput.files || !fileInput.files.length) {
+                setStatus("error", "파일을 선택해주세요.");
+                return;
+            }
+
+            isUploading = true;
+            uploadButton.disabled = true;
+            setStatus("info", "업로드 중...");
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const response = await fetch("/api/upload-sn", {
+                    method: "POST",
+                    body: formData,
+                });
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    setStatus("success", data.message || "업로드 완료");
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    setStatus("error", data.message || "업로드에 실패했습니다.");
+                }
+            } catch (err) {
+                setStatus("error", "업로드 중 오류가 발생했습니다.");
+            } finally {
+                isUploading = false;
+                uploadButton.disabled = false;
+            }
+        });
+    }
+
+    if (deleteAllButton) {
+        deleteAllButton.addEventListener("click", async () => {
+            if (!window.confirm("등록된 Lumi SN 목록을 전체 삭제할까요?")) return;
+
+            try {
+                const response = await fetch("/api/lumi-sn", { method: "DELETE" });
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    setStatus("success", data.message || "삭제 완료");
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    setStatus("error", data.message || "삭제에 실패했습니다.");
+                }
+            } catch (err) {
+                setStatus("error", "삭제 중 오류가 발생했습니다.");
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

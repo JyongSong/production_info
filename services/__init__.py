@@ -14,6 +14,12 @@ from .match_service import (
     update_match,
 )
 from .settings_service import get_qr_settings, update_qr_settings
+from .upload_service import (
+    delete_all_lumi_sn,
+    get_lumi_sn_count,
+    get_lumi_sn_list,
+    upload_lumi_sn_file,
+)
 
 __all__ = [
     "DuplicatePairError",
@@ -31,4 +37,8 @@ __all__ = [
     "update_match",
     "get_qr_settings",
     "update_qr_settings",
+    "delete_all_lumi_sn",
+    "get_lumi_sn_count",
+    "get_lumi_sn_list",
+    "upload_lumi_sn_file",
 ]
