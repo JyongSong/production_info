@@ -441,6 +441,7 @@ def download_excel():
         return jsonify({"success": False, "message": str(error)}), 400
 
 
+
 if __name__ == "__main__":
     host = os.environ.get("QR_TOOL_HOST", "127.0.0.1")
     port = int(os.environ.get("QR_TOOL_PORT", "5055"))
