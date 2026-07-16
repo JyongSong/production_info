@@ -91,17 +91,37 @@ def select(
     order: str | None = None,
     limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    parts = [f"select={columns}"]
+    base_parts = [f"select={columns}"]
     if filters:
         for key, value in filters.items():
-            parts.append(f"{key}={value}")
+            base_parts.append(f"{key}={value}")
     if order:
-        parts.append(f"order={order}")
-    if limit is not None and limit > 0:
-        parts.append(f"limit={limit}")
+        base_parts.append(f"order={order}")
 
-    result = _api_request("GET", table, query_params="&".join(parts))
-    return result if isinstance(result, list) else []
+    # If a positive limit is specified, make a single request
+    if limit is not None and limit > 0:
+        parts = list(base_parts)
+        parts.append(f"limit={limit}")
+        result = _api_request("GET", table, query_params="&".join(parts))
+        return result if isinstance(result, list) else []
+
+    # If limit is not specified or <= 0, automatically paginate (fetch in batches of 1000)
+    all_rows = []
+    page_size = 1000
+    offset = 0
+    while True:
+        parts = list(base_parts)
+        parts.append(f"limit={page_size}")
+        parts.append(f"offset={offset}")
+        result = _api_request("GET", table, query_params="&".join(parts))
+        if not isinstance(result, list) or not result:
+            break
+        all_rows.extend(result)
+        if len(result) < page_size:
+            break
+        offset += page_size
+
+    return all_rows
 
 
 def insert(table: str, data: dict[str, Any] | list[dict[str, Any]]) -> Any:
@@ -131,3 +151,28 @@ def update(table: str, filters: str, data: dict[str, Any]) -> dict[str, Any] | N
 
 def delete(table: str, filters: str) -> None:
     _api_request("DELETE", table, query_params=filters)
+
+
+def rpc(fn_name: str, params: dict[str, Any] | None = None) -> Any:
+    """Execute a database function (RPC) in Supabase."""
+    url = f"{SUPABASE_URL}/rest/v1/rpc/{fn_name}"
+    
+    encoded_body = json.dumps(params).encode("utf-8") if params is not None else None
+    req = urllib.request.Request(
+        url,
+        data=encoded_body,
+        headers=_build_headers(),
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req) as response:
+            response_text = response.read().decode("utf-8")
+            if response_text:
+                return json.loads(response_text)
+            return None
+    except urllib.error.HTTPError as error:
+        error_text = error.read().decode("utf-8")
+        raise RuntimeError(
+            f"Supabase RPC error ({error.code}): {error_text}"
+        ) from error

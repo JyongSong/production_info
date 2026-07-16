@@ -187,6 +187,8 @@
             if (saveButton) {
                 saveButton.disabled = true;
             }
+            firstQrInput.disabled = true;
+            secondQrInput.disabled = true;
 
             var xhr = new XMLHttpRequest();
             xhr.open("POST", "/api/matches", true);
@@ -203,6 +205,8 @@
                 if (saveButton) {
                     saveButton.disabled = false;
                 }
+                firstQrInput.disabled = false;
+                secondQrInput.disabled = false;
 
                 try {
                     data = JSON.parse(xhr.responseText || "{}");
@@ -239,6 +243,8 @@
                 if (saveButton) {
                     saveButton.disabled = false;
                 }
+                firstQrInput.disabled = false;
+                secondQrInput.disabled = false;
                 setStatus("error", "저장 중 오류가 발생했습니다.");
                 if (window.snSound) { window.snSound.playError(); }
             };

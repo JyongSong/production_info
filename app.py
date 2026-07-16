@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
 from io import BytesIO
 import os
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, render_template, request, send_file, redirect
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -31,6 +30,7 @@ from services import (
     update_match,
     update_qr_settings,
 )
+from services.match_service import get_kst_now
 
 LUMI_PRODUCT_TABLE = "lumi_product_sn"
 
@@ -42,9 +42,26 @@ initialize_database()
 
 BASE_DIR = Path(__file__).resolve().parent
 
+# Read Access Password (empty means password authentication disabled)
+ACCESS_PASSWORD = os.environ.get("ACCESS_PASSWORD", "").strip()
+
+
+@app.before_request
+def require_login():
+    if not ACCESS_PASSWORD:
+        return
+    
+    # Allow static assets and login endpoints
+    if request.path.startswith("/static/") or request.path in ["/login", "/api/login"]:
+        return
+        
+    token = request.cookies.get("access_token")
+    if token != ACCESS_PASSWORD:
+        return redirect("/login")
+
 
 def build_dashboard_payload(message: str, match: dict | None = None) -> dict:
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = get_kst_now().strftime("%Y-%m-%d")
     payload = {
         "success": True,
         "message": message,
@@ -126,9 +143,27 @@ def _common_versions() -> dict:
     }
 
 
+@app.get("/login")
+def login_page():
+    return render_template("login.html")
+
+
+@app.post("/api/login")
+def login_api():
+    payload = request.get_json(silent=True) or request.form
+    password = (payload.get("password", "") or "").strip()
+    
+    if password == ACCESS_PASSWORD:
+        resp = jsonify({"success": True, "message": "로그인에 성공했습니다."})
+        resp.set_cookie("access_token", ACCESS_PASSWORD, max_age=30*24*60*60, httponly=True)
+        return resp
+    else:
+        return jsonify({"success": False, "message": "비밀번호가 올바르지 않습니다."}), 401
+
+
 @app.get("/")
 def home():
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = get_kst_now().strftime("%Y-%m-%d")
     return render_template(
         "home.html",
         today_count=count_matches_by_date(today),
@@ -139,7 +174,7 @@ def home():
 
 @app.get("/scan")
 def scan_page():
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = get_kst_now().strftime("%Y-%m-%d")
     return render_template(
         "scan.html",
         recent_matches=get_recent_matches(),
@@ -278,7 +313,7 @@ def update_settings_api():
 
 @app.get("/api/recent")
 def recent_matches_api():
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = get_kst_now().strftime("%Y-%m-%d")
     return jsonify(
         {
             "recent_matches": get_recent_matches(),
@@ -351,17 +386,8 @@ def upload_lumi_sn():
         if not rows_to_insert:
             return jsonify({"success": False, "message": "유효한 데이터가 없습니다."}), 400
 
-        # Delete all existing rows from lumi_product_sn
-        try:
-            db.delete(LUMI_PRODUCT_TABLE, "lumi_sn=neq.___impossible___")
-        except Exception:
-            pass  # Table might be empty
-
-        # Insert in batches of 500
-        batch_size = 500
-        for i in range(0, len(rows_to_insert), batch_size):
-            batch = rows_to_insert[i : i + batch_size]
-            db.insert(LUMI_PRODUCT_TABLE, batch)
+        # Replace the entire whitelist atomically in a transaction
+        db.rpc("replace_lumi_product_sn", {"p_rows": rows_to_insert})
 
         return jsonify({
             "success": True,
@@ -422,6 +448,32 @@ def download_lumi_sn_sample():
     )
 
 
+@app.get("/api/lumi-whitelist-status")
+def get_whitelist_status():
+    """Get whitelist progress stats: total, used, unused."""
+    try:
+        whitelist = db.select(LUMI_PRODUCT_TABLE, columns="lumi_sn")
+        total_count = len(whitelist)
+
+        # Get all non-deleted production matches
+        matches = db.select("production_records", columns="lumi_sn", filters={"deleted_at": "is.null"})
+        used_lumi_sns = {m["lumi_sn"] for m in matches}
+
+        # Calculate overlap
+        used_count = sum(1 for item in whitelist if item["lumi_sn"] in used_lumi_sns)
+        unused_count = total_count - used_count
+
+        return jsonify({
+            "success": True,
+            "total_count": total_count,
+            "used_count": used_count,
+            "unused_count": unused_count,
+            "progress_percent": round((used_count / total_count * 100), 1) if total_count > 0 else 0
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @app.get("/download.xlsx")
 def download_excel():
     try:
@@ -429,7 +481,7 @@ def download_excel():
         rows = list_matches_for_export(target_date=target_date)
         excel_file = build_excel_file(rows)
 
-        date_suffix = target_date.strip() if target_date else datetime.now().strftime("%Y%m%d_%H%M%S")
+        date_suffix = target_date.strip() if target_date else get_kst_now().strftime("%Y%m%d_%H%M%S")
         filename = f"qr_matching_{date_suffix}.xlsx"
         return send_file(
             excel_file,
@@ -439,7 +491,6 @@ def download_excel():
         )
     except ValidationError as error:
         return jsonify({"success": False, "message": str(error)}), 400
-
 
 
 if __name__ == "__main__":

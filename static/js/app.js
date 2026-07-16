@@ -70,6 +70,16 @@ document.addEventListener("DOMContentLoaded", () => {
         syncSettingsInputs();
     }
 
+    // Whitelist progress elements
+    const progressText = document.getElementById("progressText");
+    const progressBar = document.getElementById("progressBar");
+    const progressUnused = document.getElementById("progressUnused");
+    const progressUsed = document.getElementById("progressUsed");
+
+    if (progressText && progressBar) {
+        loadWhitelistProgress();
+    }
+
     /* Dashboard hooks (scan page) */
     window.qrDashboardHooks = {
         onSaveSuccess: async (data) => {
@@ -210,6 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
             );
             if (lumiSnCount) lumiSnCount.textContent = String(data.count);
             clearFileSelection();
+            await loadWhitelistProgress();
         } catch (error) {
             setUploadStatus("error", "업로드 중 오류가 발생했습니다.");
             if (uploadLumiSnButton) uploadLumiSnButton.disabled = false;
@@ -732,6 +743,24 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateDownloadDateButton() {
         if (downloadDateButton && searchDateInput) {
             downloadDateButton.disabled = !searchDateInput.value;
+        }
+    }
+
+    async function loadWhitelistProgress() {
+        if (!progressText || !progressBar) return;
+        try {
+            const response = await fetch("/api/lumi-whitelist-status");
+            const data = await response.json();
+            if (data.success) {
+                progressText.textContent = `${data.progress_percent}% (${data.used_count} / ${data.total_count})`;
+                progressBar.style.width = `${data.progress_percent}%`;
+                if (progressUnused) progressUnused.textContent = String(data.unused_count);
+                if (progressUsed) progressUsed.textContent = String(data.used_count);
+            } else {
+                progressText.textContent = "불러오기 실패";
+            }
+        } catch (error) {
+            progressText.textContent = "불러오기 실패";
         }
     }
 });

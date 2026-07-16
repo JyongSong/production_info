@@ -24,6 +24,21 @@
             Lumi SN 목록을 업로드해주세요. 현재 등록된 SN: <strong id="lumiSnCount">{{ lumi_sn_count }}</strong>건
         </div>
 
+        <!-- Lumi SN 사용 진행률 표시 바 -->
+        <div id="progressArea" class="whitelist-progress-container" style="margin-top: 15px; margin-bottom: 25px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 8px; font-weight: bold; color: var(--brand);">
+                <span>Lumi SN 사용 진행률</span>
+                <span id="progressText">불러오는 중...</span>
+            </div>
+            <div style="background-color: #e2e8f0; border-radius: 8px; height: 16px; overflow: hidden; width: 100%;">
+                <div id="progressBar" style="background-color: var(--brand); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 8px; color: #64748b; font-weight: 500;">
+                <span>남은 수량 (미사용): <strong id="progressUnused" style="color: #0f172a;">0</strong>건</span>
+                <span>매칭 수량 (사용됨): <strong id="progressUsed" style="color: #0f172a;">0</strong>건</span>
+            </div>
+        </div>
+
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">&#128206;</div>
             <p class="upload-text">Excel 파일을 여기에 드래그하거나 클릭하여 선택하세요</p>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 import supabase_client as db
@@ -54,6 +54,11 @@ class NotFoundError(MatchServiceError):
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def get_kst_now() -> datetime:
+    """Return current localized datetime in KST (UTC+9)."""
+    return datetime.now(timezone(timedelta(hours=9)))
+
 
 def normalize_text(value: Any) -> str:
     return str(value or "").strip()
@@ -140,14 +145,17 @@ def check_lumi_sn_exists(lumi_sn: str) -> bool:
 
 
 def check_lumi_sn_already_used(lumi_sn: str) -> bool:
-    """Return True if the Lumi SN is already used in production_records."""
+    """Return True if the Lumi SN is already used in active production_records."""
     lumi_sn = normalize_text(lumi_sn)
     if not lumi_sn:
         return False
     rows = db.select(
         TABLE,
         columns="id",
-        filters={"lumi_sn": f"eq.{lumi_sn}"},
+        filters={
+            "lumi_sn": f"eq.{lumi_sn}",
+            "deleted_at": "is.null",
+        },
         limit=1,
     )
     return bool(rows)
@@ -162,6 +170,7 @@ def _validate_duplicate_rules(
     pair_filters: dict[str, str] = {
         "lumi_sn": f"eq.{first_qr}",
         "solity_sn": f"eq.{second_qr}",
+        "deleted_at": "is.null",
     }
     if exclude_record_id is not None:
         pair_filters["id"] = f"neq.{exclude_record_id}"
@@ -197,7 +206,7 @@ def _save_used_sn_codes(record_id: int, first_qr: str, second_qr: str) -> None:
 # ---------------------------------------------------------------------------
 
 def get_match_by_id(match_id: int) -> dict[str, Any]:
-    rows = db.select(TABLE, filters={"id": f"eq.{match_id}"}, limit=1)
+    rows = db.select(TABLE, filters={"id": f"eq.{match_id}", "deleted_at": "is.null"}, limit=1)
     if not rows:
         raise NotFoundError("수정할 데이터를 찾을 수 없습니다.")
     return _row_to_dict(rows[0])
@@ -216,31 +225,31 @@ def create_match(
 
     validate_match_input(first_qr, second_qr)
     _validate_lumi_sn_exists(first_qr)
-    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    created_at = get_kst_now().strftime("%Y-%m-%d %H:%M:%S")
 
     _validate_duplicate_rules(first_qr, second_qr)
 
     try:
-        saved_row = db.insert(
-            TABLE,
+        # Call safe atomic transaction RPC instead of non-atomic insert
+        saved_row = db.rpc(
+            "create_production_match",
             {
-                "lumi_sn": first_qr,
-                "solity_sn": second_qr,
-                "production_time": created_at,
-                "operator_name": operator_name,
-                "note": note,
+                "p_lumi_sn": first_qr,
+                "p_solity_sn": second_qr,
+                "p_production_time": created_at,
+                "p_operator_name": operator_name,
+                "p_note": note,
             },
         )
     except RuntimeError as error:
         error_msg = str(error)
         if "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
-            raise DuplicateSaveError("중복으로 저장할 수 없습니다.") from error
+            raise DuplicateSaveError("중복으로 저장할 수 없습니다. 이미 사용된 SN입니다.") from error
         raise
 
     if not saved_row or "id" not in saved_row:
-        raise DuplicateSaveError("중복으로 저장할 수 없습니다.")
+        raise DuplicateSaveError("중복으로 저장할 수 없습니다. 이미 사용된 SN입니다.")
 
-    _save_used_sn_codes(saved_row["id"], first_qr, second_qr)
     return _row_to_dict(saved_row)
 
 
@@ -259,8 +268,8 @@ def update_match(
     validate_match_input(first_qr, second_qr)
     _validate_lumi_sn_exists(first_qr)
 
-    # Verify record exists
-    existing = db.select(TABLE, columns="id", filters={"id": f"eq.{match_id}"}, limit=1)
+    # Verify record exists and is active
+    existing = db.select(TABLE, columns="id", filters={"id": f"eq.{match_id}", "deleted_at": "is.null"}, limit=1)
     if not existing:
         raise NotFoundError("수정할 데이터를 찾을 수 없습니다.")
 
@@ -298,8 +307,12 @@ def delete_match(match_id: int) -> None:
     if not existing:
         raise NotFoundError("삭제할 데이터를 찾을 수 없습니다.")
 
+    # Release the SN codes from used tracking so they can be re-scanned
     db.delete(USED_TABLE, f"record_id=eq.{match_id}")
-    db.delete(TABLE, f"id=eq.{match_id}")
+    
+    # Soft delete the match record by setting deleted_at timestamp
+    deleted_at = get_kst_now().strftime("%Y-%m-%d %H:%M:%S")
+    db.update(TABLE, f"id=eq.{match_id}", {"deleted_at": deleted_at})
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +329,9 @@ def fetch_matches(
     second_qr = normalize_text(second_qr)
     target_date = normalize_date_filter(target_date)
 
-    filters: dict[str, str] = {}
+    filters: dict[str, str] = {
+        "deleted_at": "is.null",
+    }
 
     if first_qr:
         filters["lumi_sn"] = f"ilike.*{first_qr}*"
@@ -362,6 +377,9 @@ def count_matches_by_date(target_date: Any) -> int:
     rows = db.select(
         TABLE,
         columns="id",
-        filters={"production_time": f"like.{date_text}*"},
+        filters={
+            "production_time": f"like.{date_text}*",
+            "deleted_at": "is.null",
+        },
     )
     return len(rows)
