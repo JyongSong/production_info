@@ -16,6 +16,7 @@ from services import (
     DuplicateQRCodeError,
     DuplicateSaveError,
     InvalidLumiSnError,
+    MatchServiceError,
     NotFoundError,
     ValidationError,
     check_lumi_sn_already_used,
@@ -207,6 +208,15 @@ def settings_page():
     )
 
 
+def error_response(error: MatchServiceError, status: int):
+    """Return a JSON error that tells the client which input to focus."""
+    return jsonify({
+        "success": False,
+        "message": str(error),
+        "field": getattr(error, "field", None),
+    }), status
+
+
 @app.post("/api/matches")
 def save_match():
     payload = request.get_json(silent=True) or request.form
@@ -221,15 +231,15 @@ def save_match():
         )
         return jsonify(build_dashboard_payload("매칭이 저장되었습니다.", saved_match))
     except ValidationError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
+        return error_response(error, 400)
     except InvalidLumiSnError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
+        return error_response(error, 400)
     except DuplicatePairError as error:
-        return jsonify({"success": False, "message": str(error)}), 409
+        return error_response(error, 409)
     except DuplicateQRCodeError as error:
-        return jsonify({"success": False, "message": str(error)}), 409
+        return error_response(error, 409)
     except DuplicateSaveError as error:
-        return jsonify({"success": False, "message": str(error)}), 409
+        return error_response(error, 409)
     except Exception:
         return jsonify({"success": False, "message": "저장 중 오류가 발생했습니다."}), 500
 
@@ -250,15 +260,15 @@ def update_match_api(match_id: int):
     except NotFoundError as error:
         return jsonify({"success": False, "message": str(error)}), 404
     except ValidationError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
+        return error_response(error, 400)
     except InvalidLumiSnError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
+        return error_response(error, 400)
     except DuplicatePairError as error:
-        return jsonify({"success": False, "message": str(error)}), 409
+        return error_response(error, 409)
     except DuplicateQRCodeError as error:
-        return jsonify({"success": False, "message": str(error)}), 409
+        return error_response(error, 409)
     except DuplicateSaveError as error:
-        return jsonify({"success": False, "message": str(error)}), 409
+        return error_response(error, 409)
     except Exception:
         return jsonify({"success": False, "message": "수정 중 오류가 발생했습니다."}), 500
 

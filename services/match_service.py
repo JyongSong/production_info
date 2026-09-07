@@ -24,7 +24,15 @@ LUMI_PRODUCT_TABLE = "lumi_product_sn"
 # ---------------------------------------------------------------------------
 
 class MatchServiceError(Exception):
-    """Base exception for match service errors."""
+    """Base exception for match service errors.
+
+    ``field`` tells the client which input caused the failure so the scan page
+    can put the cursor back on the right box ("first_qr" / "second_qr").
+    """
+
+    def __init__(self, message: str, field: str | None = None):
+        super().__init__(message)
+        self.field = field
 
 
 class ValidationError(MatchServiceError):
@@ -90,11 +98,11 @@ def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 def _validate_solity_sn_format(solity_sn: str) -> None:
     """Solity SN must be 13 characters, start with 'AK', and end with 'TAK'."""
     if len(solity_sn) != 13:
-        raise ValidationError("Solity SN은 13자리여야 합니다.")
+        raise ValidationError("Solity SN은 13자리여야 합니다.", "second_qr")
     if not solity_sn.startswith("AK"):
-        raise ValidationError("Solity SN은 'AK'로 시작해야 합니다.")
+        raise ValidationError("Solity SN은 'AK'로 시작해야 합니다.", "second_qr")
     if not solity_sn.endswith("TAK"):
-        raise ValidationError("Solity SN은 'TAK'로 끝나야 합니다.")
+        raise ValidationError("Solity SN은 'TAK'로 끝나야 합니다.", "second_qr")
 
 
 def validate_match_input(first_qr: str, second_qr: str) -> None:
@@ -107,10 +115,10 @@ def validate_match_input(first_qr: str, second_qr: str) -> None:
     first_qr_length = settings["first_qr_length"]
 
     if first_qr_length > 0 and len(first_qr) != first_qr_length:
-        raise ValidationError(f"Lumi SN은 {first_qr_length}자리여야 합니다.")
+        raise ValidationError(f"Lumi SN은 {first_qr_length}자리여야 합니다.", "first_qr")
 
     if first_qr_length == 0 and len(first_qr) < MIN_QR_LENGTH:
-        raise ValidationError(f"Lumi SN은 최소 {MIN_QR_LENGTH}자 이상이어야 합니다.")
+        raise ValidationError(f"Lumi SN은 최소 {MIN_QR_LENGTH}자 이상이어야 합니다.", "first_qr")
 
     _validate_solity_sn_format(second_qr)
 
@@ -127,7 +135,9 @@ def _validate_lumi_sn_exists(lumi_sn: str) -> None:
         limit=1,
     )
     if not rows:
-        raise InvalidLumiSnError("등록되지 않은 Lumi SN입니다. 유효한 Lumi SN을 입력해주세요.")
+        raise InvalidLumiSnError(
+            "등록되지 않은 Lumi SN입니다. 유효한 Lumi SN을 입력해주세요.", "first_qr"
+        )
 
 
 def check_lumi_sn_exists(lumi_sn: str) -> bool:
@@ -188,7 +198,9 @@ def _validate_duplicate_rules(
 
     existing_codes = db.select(USED_TABLE, columns="sn_value", filters=used_filters, limit=1)
     if existing_codes:
-        raise DuplicateQRCodeError("이미 사용된 SN 코드입니다.")
+        used_value = existing_codes[0].get("sn_value")
+        field = "first_qr" if used_value == first_qr else "second_qr"
+        raise DuplicateQRCodeError("이미 사용된 SN 코드입니다.", field)
 
 
 # ---------------------------------------------------------------------------

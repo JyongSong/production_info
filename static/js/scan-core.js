@@ -83,20 +83,13 @@
                 return;
             }
 
-            // Validate Lumi SN exists in lumi_product_sn table
-            validateLumiSnFromServer(value, function (isValid, message) {
-                if (!isValid) {
-                    setStatus("error", message || "등록되지 않은 Lumi SN입니다.");
-                    if (window.snSound) { window.snSound.playError(); }
-                    selectInputDeferred(firstQrInput);
-                    return;
-                }
-
-                clearFirstQrTimer();
-                secondQrInput.focus();
-                secondQrInput.select();
-                setStatus("info", "Solity SN을 스캔해주세요.");
-            });
+            // No server round trip here: the Lumi SN is verified together with the
+            // Solity SN in the single save request, so the operator keeps scanning
+            // without waiting.
+            clearFirstQrTimer();
+            secondQrInput.focus();
+            secondQrInput.select();
+            setStatus("info", "Solity SN을 스캔해주세요.");
         }
 
         function handleSecondQrEnter(event) {
@@ -122,18 +115,10 @@
             var firstQrValue = trimValue(firstQrInput.value);
 
             if (!trimValue(secondQrInput.value) && validateSingleQr(firstQrValue, "Lumi SN")) {
-                validateLumiSnFromServer(firstQrValue, function (isValid, message) {
-                    if (!isValid) {
-                        setStatus("error", message || "등록되지 않은 Lumi SN입니다.");
-                        if (window.snSound) { window.snSound.playError(); }
-                        selectInputDeferred(firstQrInput);
-                        return;
-                    }
-                    clearFirstQrTimer();
-                    secondQrInput.focus();
-                    secondQrInput.select();
-                    setStatus("info", "Solity SN을 스캔해주세요.");
-                });
+                clearFirstQrTimer();
+                secondQrInput.focus();
+                secondQrInput.select();
+                setStatus("info", "Solity SN을 스캔해주세요.");
                 return;
             }
 
@@ -220,6 +205,9 @@
                     if (window.qrDashboardHooks && typeof window.qrDashboardHooks.onSaveError === "function") {
                         window.qrDashboardHooks.onSaveError(data.message || "저장에 실패했습니다.");
                     }
+                    // Both SNs are checked in this one request now, so put the
+                    // cursor back on whichever box the server rejected.
+                    focusRejectedInput(data.field);
                     return;
                 }
 
@@ -325,6 +313,14 @@
                 return false;
             }
             return true;
+        }
+
+        function focusRejectedInput(field) {
+            if (field === "second_qr") {
+                selectInputDeferred(secondQrInput);
+            } else {
+                selectInputDeferred(firstQrInput);
+            }
         }
 
         function selectInputDeferred(inputElement) {
@@ -507,37 +503,6 @@
                 return 0;
             }
             return number;
-        }
-
-        function validateLumiSnFromServer(snValue, callback) {
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", "/api/validate-lumi-sn?sn=" + encodeURIComponent(snValue), true);
-
-            xhr.onreadystatechange = function () {
-                var data;
-                if (xhr.readyState !== 4) {
-                    return;
-                }
-
-                try {
-                    data = JSON.parse(xhr.responseText || "{}");
-                } catch (error) {
-                    data = {};
-                }
-
-                if (data.valid) {
-                    callback(true);
-                } else {
-                    callback(false, data.message || "등록되지 않은 Lumi SN입니다.");
-                }
-            };
-
-            xhr.onerror = function () {
-                // On network error, allow save to proceed (server will validate again)
-                callback(true);
-            };
-
-            xhr.send();
         }
 
         function restoreOperatorName() {
