@@ -191,16 +191,6 @@ def _validate_duplicate_rules(
         raise DuplicateQRCodeError("이미 사용된 SN 코드입니다.")
 
 
-def _save_used_sn_codes(record_id: int, first_qr: str, second_qr: str) -> None:
-    db.insert(
-        USED_TABLE,
-        [
-            {"sn_value": first_qr, "record_id": record_id, "sn_role": "lumi"},
-            {"sn_value": second_qr, "record_id": record_id, "sn_role": "solity"},
-        ],
-    )
-
-
 # ---------------------------------------------------------------------------
 # Public CRUD
 # ---------------------------------------------------------------------------
@@ -276,14 +266,15 @@ def update_match(
     _validate_duplicate_rules(first_qr, second_qr, exclude_record_id=match_id)
 
     try:
-        updated_row = db.update(
-            TABLE,
-            f"id=eq.{match_id}",
+        # Atomic RPC: updates the record, used SN codes and shipped_devices together
+        updated_row = db.rpc(
+            "update_production_match",
             {
-                "lumi_sn": first_qr,
-                "solity_sn": second_qr,
-                "operator_name": operator_name,
-                "note": note,
+                "p_record_id": match_id,
+                "p_lumi_sn": first_qr,
+                "p_solity_sn": second_qr,
+                "p_operator_name": operator_name,
+                "p_note": note,
             },
         )
     except RuntimeError as error:
@@ -295,24 +286,20 @@ def update_match(
     if not updated_row:
         raise DuplicateSaveError("중복으로 저장할 수 없습니다.")
 
-    # Refresh used SN codes
-    db.delete(USED_TABLE, f"record_id=eq.{match_id}")
-    _save_used_sn_codes(match_id, first_qr, second_qr)
-
     return _row_to_dict(updated_row)
 
 
 def delete_match(match_id: int) -> None:
-    existing = db.select(TABLE, columns="id", filters={"id": f"eq.{match_id}"}, limit=1)
-    if not existing:
-        raise NotFoundError("삭제할 데이터를 찾을 수 없습니다.")
-
-    # Release the SN codes from used tracking so they can be re-scanned
-    db.delete(USED_TABLE, f"record_id=eq.{match_id}")
-    
-    # Soft delete the match record by setting deleted_at timestamp
     deleted_at = get_kst_now().strftime("%Y-%m-%d %H:%M:%S")
-    db.update(TABLE, f"id=eq.{match_id}", {"deleted_at": deleted_at})
+
+    # Atomic RPC: soft-deletes the record and its shipped_devices row, and
+    # releases the SN codes from used tracking so they can be re-scanned.
+    deleted = db.rpc(
+        "delete_production_match",
+        {"p_record_id": match_id, "p_deleted_at": deleted_at},
+    )
+    if not deleted:
+        raise NotFoundError("삭제할 데이터를 찾을 수 없습니다.")
 
 
 # ---------------------------------------------------------------------------
