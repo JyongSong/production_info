@@ -421,8 +421,8 @@ document.addEventListener("DOMContentLoaded", () => {
             messageSetter("error", "Solity SN은 'AK'로 시작해야 합니다.");
             return false;
         }
-        if (!value.endsWith("TAK")) {
-            messageSetter("error", "Solity SN은 'TAK'로 끝나야 합니다.");
+        if (!value.endsWith("TAK") && !value.endsWith("TAS")) {
+            messageSetter("error", "Solity SN은 'TAK' 또는 'TAS'로 끝나야 합니다.");
             return false;
         }
         return true;

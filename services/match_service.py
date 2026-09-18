@@ -18,6 +18,8 @@ TABLE = "production_records"
 USED_TABLE = "used_sn_codes"
 LUMI_PRODUCT_TABLE = "lumi_product_sn"
 
+SOLITY_SN_SUFFIXES = ("TAK", "TAS")
+
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -96,13 +98,13 @@ def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _validate_solity_sn_format(solity_sn: str) -> None:
-    """Solity SN must be 13 characters, start with 'AK', and end with 'TAK'."""
+    """Solity SN must be 13 characters, start with 'AK', and end with 'TAK' or 'TAS'."""
     if len(solity_sn) != 13:
         raise ValidationError("Solity SN은 13자리여야 합니다.", "second_qr")
     if not solity_sn.startswith("AK"):
         raise ValidationError("Solity SN은 'AK'로 시작해야 합니다.", "second_qr")
-    if not solity_sn.endswith("TAK"):
-        raise ValidationError("Solity SN은 'TAK'로 끝나야 합니다.", "second_qr")
+    if not solity_sn.endswith(SOLITY_SN_SUFFIXES):
+        raise ValidationError("Solity SN은 'TAK' 또는 'TAS'로 끝나야 합니다.", "second_qr")
 
 
 def validate_match_input(first_qr: str, second_qr: str) -> None:

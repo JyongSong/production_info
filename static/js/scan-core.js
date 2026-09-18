@@ -308,8 +308,8 @@
                 setStatus("error", "Solity SN은 'AK'로 시작해야 합니다.");
                 return false;
             }
-            if (value.indexOf("TAK", value.length - 3) === -1) {
-                setStatus("error", "Solity SN은 'TAK'로 끝나야 합니다.");
+            if (value.indexOf("TAK", value.length - 3) === -1 && value.indexOf("TAS", value.length - 3) === -1) {
+                setStatus("error", "Solity SN은 'TAK' 또는 'TAS'로 끝나야 합니다.");
                 return false;
             }
             return true;
