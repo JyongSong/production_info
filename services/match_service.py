@@ -18,8 +18,6 @@ TABLE = "production_records"
 USED_TABLE = "used_sn_codes"
 LUMI_PRODUCT_TABLE = "lumi_product_sn"
 
-SOLITY_SN_SUFFIXES = ("TAK", "TAS")
-
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -97,23 +95,48 @@ def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _validate_solity_sn_format(solity_sn: str) -> None:
-    """Solity SN must be 13 characters, start with 'AK', and end with 'TAK' or 'TAS'."""
-    if len(solity_sn) != 13:
-        raise ValidationError("Solity SN은 13자리여야 합니다.", "second_qr")
-    if not solity_sn.startswith("AK"):
-        raise ValidationError("Solity SN은 'AK'로 시작해야 합니다.", "second_qr")
-    if not solity_sn.endswith(SOLITY_SN_SUFFIXES):
-        raise ValidationError("Solity SN은 'TAK' 또는 'TAS'로 끝나야 합니다.", "second_qr")
+def _validate_solity_sn_format(solity_sn: str, rule: dict[str, Any]) -> None:
+    """Check the Solity SN against the configured length/prefix/suffix rule.
+
+    An empty value for any of the three means that check is skipped, so the
+    rule can be relaxed from the settings page without a deploy.
+    """
+    length = rule.get("length") or 0
+    prefix = rule.get("prefix") or ""
+    suffixes = rule.get("suffixes") or []
+
+    if length and len(solity_sn) != length:
+        raise ValidationError(f"Solity SN은 {length}자리여야 합니다.", "second_qr")
+    if prefix and not solity_sn.startswith(prefix):
+        raise ValidationError(f"Solity SN은 '{prefix}'로 시작해야 합니다.", "second_qr")
+    if suffixes and not solity_sn.endswith(tuple(suffixes)):
+        if len(suffixes) == 1:
+            message = f"Solity SN은 '{suffixes[0]}'로 끝나야 합니다."
+        else:
+            allowed = ", ".join(f"'{item}'" for item in suffixes)
+            message = f"Solity SN은 {allowed} 중 하나로 끝나야 합니다."
+        raise ValidationError(message, "second_qr")
+
+
+def validate_solity_sn_format(solity_sn: str, rule: dict[str, Any]) -> None:
+    """Public wrapper so callers can test an SN against an arbitrary rule.
+
+    Used by the settings page preview so that what it reports is produced by
+    the exact same code path that runs on save.
+    """
+    _validate_solity_sn_format(solity_sn, rule)
 
 
 def validate_match_input(first_qr: str, second_qr: str) -> None:
-    from .settings_service import get_qr_settings
+    # Imported lazily: settings_service imports ValidationError from this module.
+    from .settings_service import get_all_settings, get_qr_settings, get_solity_rule
 
     if not first_qr or not second_qr:
         raise ValidationError("Lumi SN과 Solity SN을 모두 입력해주세요.")
 
-    settings = get_qr_settings()
+    # One round trip to the settings table feeds both the length and format check.
+    raw_settings = get_all_settings()
+    settings = get_qr_settings(raw_settings)
     first_qr_length = settings["first_qr_length"]
 
     if first_qr_length > 0 and len(first_qr) != first_qr_length:
@@ -122,7 +145,7 @@ def validate_match_input(first_qr: str, second_qr: str) -> None:
     if first_qr_length == 0 and len(first_qr) < MIN_QR_LENGTH:
         raise ValidationError(f"Lumi SN은 최소 {MIN_QR_LENGTH}자 이상이어야 합니다.", "first_qr")
 
-    _validate_solity_sn_format(second_qr)
+    _validate_solity_sn_format(second_qr, get_solity_rule(raw_settings))
 
     if first_qr == second_qr:
         raise ValidationError("동일한 값 2개는 한 세트로 저장할 수 없습니다.")

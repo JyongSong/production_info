@@ -16,8 +16,17 @@ from .match_service import (
     list_matches_for_export,
     search_matches,
     update_match,
+    validate_solity_sn_format,
 )
-from .settings_service import get_qr_settings, update_qr_settings
+from .settings_service import (
+    get_qr_settings,
+    get_solity_rule,
+    normalize_fixed_text,
+    normalize_length_value,
+    normalize_suffixes,
+    update_qr_settings,
+    update_solity_rule,
+)
 
 __all__ = [
     "DuplicatePairError",
@@ -38,5 +47,11 @@ __all__ = [
     "search_matches",
     "update_match",
     "get_qr_settings",
+    "get_solity_rule",
+    "normalize_fixed_text",
+    "normalize_length_value",
+    "normalize_suffixes",
     "update_qr_settings",
+    "update_solity_rule",
+    "validate_solity_sn_format",
 ]

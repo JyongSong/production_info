@@ -51,8 +51,9 @@ CREATE TABLE IF NOT EXISTS used_sn_codes (
     sn_role TEXT NOT NULL CHECK (sn_role IN ('lumi', 'solity'))
 );
 
--- 3. 앱 설정 테이블 (app_settings)
-CREATE TABLE IF NOT EXISTS app_settings (
+-- 3. 앱 설정 테이블 (production_app_settings)
+--    이 Supabase는 여러 프로젝트가 공유하므로 'production' 접두사를 붙인다.
+CREATE TABLE IF NOT EXISTS production_app_settings (
     settings_key TEXT PRIMARY KEY,
     settings_value TEXT NOT NULL
 );
@@ -68,7 +69,7 @@ CREATE TABLE IF NOT EXISTS lumi_product_sn (
 -- RLS 활성화
 ALTER TABLE production_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE used_sn_codes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE production_app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lumi_product_sn ENABLE ROW LEVEL SECURITY;
 
 -- 기존 정책 삭제 후 재생성 (오류 방지)
@@ -82,9 +83,9 @@ CREATE POLICY "Allow all on used_sn_codes"
     ON used_sn_codes FOR ALL
     USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow all on app_settings" ON app_settings;
-CREATE POLICY "Allow all on app_settings"
-    ON app_settings FOR ALL
+DROP POLICY IF EXISTS "Allow all on production_app_settings" ON production_app_settings;
+CREATE POLICY "Allow all on production_app_settings"
+    ON production_app_settings FOR ALL
     USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all on lumi_product_sn" ON lumi_product_sn;
@@ -94,10 +95,19 @@ CREATE POLICY "Allow all on lumi_product_sn"
 
 
 -- [기본 데이터 설정]
-INSERT INTO app_settings (settings_key, settings_value)
+INSERT INTO production_app_settings (settings_key, settings_value)
 VALUES
     ('first_qr_length', '0'),
     ('second_qr_length', '0')
+ON CONFLICT (settings_key) DO NOTHING;
+
+-- Solity SN 형식 규칙 (설정 페이지에서 변경 가능)
+--   길이 0 / 접두사 빈값 / 접미사 빈값 = 해당 항목 검사 안 함
+INSERT INTO production_app_settings (settings_key, settings_value)
+VALUES
+    ('solity_sn_length', '13'),
+    ('solity_sn_prefix', 'AK'),
+    ('solity_sn_suffixes', 'TAK,TAS')
 ON CONFLICT (settings_key) DO NOTHING;
 
 

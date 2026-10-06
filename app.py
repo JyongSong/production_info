@@ -26,12 +26,19 @@ from services import (
     delete_match,
     get_qr_settings,
     get_recent_matches,
+    get_solity_rule,
     list_matches_for_export,
+    normalize_fixed_text,
+    normalize_length_value,
+    normalize_suffixes,
     search_matches,
     update_match,
     update_qr_settings,
+    update_solity_rule,
+    validate_solity_sn_format,
 )
 from services.match_service import get_kst_now
+from services.settings_service import get_all_settings
 
 LUMI_PRODUCT_TABLE = "lumi_product_sn"
 
@@ -135,11 +142,25 @@ def add_no_cache_headers(response):
     return response
 
 
+def _sn_settings() -> dict:
+    """Every SN-related setting, fetched in a single query.
+
+    Shaped for the templates: the existing `qr_settings` object gains a
+    `solity_rule` field, so the frontend keeps using the one JSON payload it
+    already reads instead of a second injection point.
+    """
+    raw = get_all_settings()
+    settings = get_qr_settings(raw)
+    settings["solity_rule"] = get_solity_rule(raw)
+    return settings
+
+
 def _common_versions() -> dict:
     return {
         "css_version": get_asset_version("static/css/style.css"),
         "js_version": get_asset_version("static/js/app.js"),
         "scan_js_version": get_asset_version("static/js/scan-core.js"),
+        "settings_js_version": get_asset_version("static/js/settings-rule.js"),
         "sound_js_version": get_asset_version("static/js/sound.js"),
     }
 
@@ -181,14 +202,15 @@ def scan_page():
         recent_matches=get_recent_matches(),
         today_count=count_matches_by_date(today),
         today=today,
-        qr_settings=get_qr_settings(),
+        qr_settings=_sn_settings(),
         **_common_versions(),
     )
 
 
 @app.get("/search")
 def search_page():
-    return render_template("search.html", **_common_versions())
+    # 검색 페이지에도 수정 다이얼로그가 있으므로 동일한 규칙을 내려준다.
+    return render_template("search.html", qr_settings=_sn_settings(), **_common_versions())
 
 
 @app.get("/settings")
@@ -202,7 +224,7 @@ def settings_page():
 
     return render_template(
         "settings.html",
-        qr_settings=get_qr_settings(),
+        qr_settings=_sn_settings(),
         lumi_sn_count=lumi_sn_count,
         **_common_versions(),
     )
@@ -298,27 +320,81 @@ def validate_lumi_sn_api():
 
 @app.get("/api/settings")
 def get_settings_api():
-    return jsonify({"settings": get_qr_settings()})
+    return jsonify({"settings": _sn_settings()})
 
 
 @app.put("/api/settings")
 def update_settings_api():
     payload = request.get_json(silent=True) or request.form
 
+    # Partial update: a key that is absent keeps its stored value. Using
+    # payload.get(key, 0) here would silently clear whatever the caller
+    # happened not to send.
+    def field(key: str):
+        return payload.get(key) if key in payload else None
+
     try:
-        settings = update_qr_settings(
-            first_qr_length=payload.get("first_qr_length", 0),
-            second_qr_length=payload.get("second_qr_length", 0),
-        )
+        if "first_qr_length" in payload or "second_qr_length" in payload:
+            update_qr_settings(
+                first_qr_length=field("first_qr_length"),
+                second_qr_length=field("second_qr_length"),
+            )
+
+        solity_keys = ("solity_sn_length", "solity_sn_prefix", "solity_sn_suffixes")
+        if any(key in payload for key in solity_keys):
+            update_solity_rule(
+                length=field("solity_sn_length"),
+                prefix=field("solity_sn_prefix"),
+                suffixes=field("solity_sn_suffixes"),
+                confirm_no_check=bool(payload.get("confirm_no_check")),
+            )
+
         return jsonify(
             {
                 "success": True,
-                "message": "QR 자릿수 설정이 저장되었습니다.",
-                "settings": settings,
+                "message": "설정이 저장되었습니다.",
+                "settings": _sn_settings(),
             }
         )
     except ValidationError as error:
         return jsonify({"success": False, "message": str(error)}), 400
+
+
+@app.post("/api/settings/preview-solity-sn")
+def preview_solity_sn_api():
+    """Test an SN against a rule that has not been saved yet.
+
+    Runs the same check as saving a record does, so the result on this page
+    is the behaviour the production line will actually get.
+    """
+    payload = request.get_json(silent=True) or request.form
+    solity_sn = str(payload.get("sn", "") or "").strip()
+
+    if not solity_sn:
+        return jsonify({"valid": False, "message": "테스트할 Solity SN을 입력해주세요."}), 400
+
+    rule_payload = payload.get("rule") or {}
+    try:
+        rule = {
+            "length": normalize_length_value(
+                rule_payload.get("solity_sn_length"), "Solity SN 자릿수"
+            ),
+            "prefix": normalize_fixed_text(
+                rule_payload.get("solity_sn_prefix"), "Solity SN 접두사"
+            ),
+            "suffixes": normalize_suffixes(
+                rule_payload.get("solity_sn_suffixes"), "Solity SN 접미사"
+            ),
+        }
+    except ValidationError as error:
+        return jsonify({"valid": False, "message": str(error)}), 400
+
+    try:
+        validate_solity_sn_format(solity_sn, rule)
+    except ValidationError as error:
+        return jsonify({"valid": False, "message": str(error)})
+
+    return jsonify({"valid": True, "message": "이 규칙을 통과합니다."})
 
 
 @app.get("/api/recent")

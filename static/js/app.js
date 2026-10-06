@@ -409,20 +409,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function validateSolitySn(value, messageSetter) {
+        // 서버가 최종 권위이고, 이 검사는 입력 중 즉시 피드백을 주기 위한 것이다.
+        const rule = qrSettings.solity_rule;
+
         if (!value) {
             messageSetter("error", "Solity SN을(를) 입력해주세요.");
             return false;
         }
-        if (value.length !== 13) {
-            messageSetter("error", "Solity SN은 13자리여야 합니다.");
+        if (rule.length && value.length !== rule.length) {
+            messageSetter("error", `Solity SN은 ${rule.length}자리여야 합니다.`);
             return false;
         }
-        if (!value.startsWith("AK")) {
-            messageSetter("error", "Solity SN은 'AK'로 시작해야 합니다.");
+        if (rule.prefix && !value.startsWith(rule.prefix)) {
+            messageSetter("error", `Solity SN은 '${rule.prefix}'로 시작해야 합니다.`);
             return false;
         }
-        if (!value.endsWith("TAK") && !value.endsWith("TAS")) {
-            messageSetter("error", "Solity SN은 'TAK' 또는 'TAS'로 끝나야 합니다.");
+        if (rule.suffixes.length && !rule.suffixes.some((item) => value.endsWith(item))) {
+            const allowed = rule.suffixes.map((item) => `'${item}'`).join(", ");
+            messageSetter("error", rule.suffixes.length === 1
+                ? `Solity SN은 '${rule.suffixes[0]}'로 끝나야 합니다.`
+                : `Solity SN은 ${allowed} 중 하나로 끝나야 합니다.`);
             return false;
         }
         return true;
@@ -733,6 +739,18 @@ document.addEventListener("DOMContentLoaded", () => {
         return {
             first_qr_length: normalizeLengthValue(s.first_qr_length) ?? 0,
             second_qr_length: normalizeLengthValue(s.second_qr_length) ?? 0,
+            solity_rule: normalizeSolityRule(s.solity_rule),
+        };
+    }
+
+    function normalizeSolityRule(rule) {
+        rule = rule || {};
+        return {
+            length: normalizeLengthValue(rule.length) ?? 0,
+            prefix: String(rule.prefix ?? "").trim().toUpperCase(),
+            suffixes: (rule.suffixes ?? [])
+                .map((item) => String(item ?? "").trim().toUpperCase())
+                .filter(Boolean),
         };
     }
 

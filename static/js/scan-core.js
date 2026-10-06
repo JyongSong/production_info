@@ -296,23 +296,46 @@
         }
 
         function validateSolitySn(value) {
+            // 서버가 최종 권위이고, 이 검사는 스캔 중 즉시 피드백을 주기 위한 것이다.
+            var rule = qrSettings.solity_rule;
+
             if (!value) {
                 setStatus("error", "Solity SN을(를) 입력해주세요.");
                 return false;
             }
-            if (value.length !== 13) {
-                setStatus("error", "Solity SN은 13자리여야 합니다.");
+            if (rule.length && value.length !== rule.length) {
+                setStatus("error", "Solity SN은 " + rule.length + "자리여야 합니다.");
                 return false;
             }
-            if (value.indexOf("AK") !== 0) {
-                setStatus("error", "Solity SN은 'AK'로 시작해야 합니다.");
+            if (rule.prefix && value.indexOf(rule.prefix) !== 0) {
+                setStatus("error", "Solity SN은 '" + rule.prefix + "'로 시작해야 합니다.");
                 return false;
             }
-            if (value.indexOf("TAK", value.length - 3) === -1 && value.indexOf("TAS", value.length - 3) === -1) {
-                setStatus("error", "Solity SN은 'TAK' 또는 'TAS'로 끝나야 합니다.");
+            if (rule.suffixes.length && !endsWithAny(value, rule.suffixes)) {
+                setStatus("error", suffixMessage(rule.suffixes));
                 return false;
             }
             return true;
+        }
+
+        function endsWithAny(value, suffixes) {
+            var i;
+            for (i = 0; i < suffixes.length; i += 1) {
+                if (value.indexOf(suffixes[i], value.length - suffixes[i].length) !== -1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function suffixMessage(suffixes) {
+            if (suffixes.length === 1) {
+                return "Solity SN은 '" + suffixes[0] + "'로 끝나야 합니다.";
+            }
+            var quoted = suffixes.map(function (item) {
+                return "'" + item + "'";
+            }).join(", ");
+            return "Solity SN은 " + quoted + " 중 하나로 끝나야 합니다.";
         }
 
         function focusRejectedInput(field) {
@@ -469,7 +492,8 @@
             if (!element) {
                 return cloneSettings({
                     first_qr_length: 0,
-                    second_qr_length: 0
+                    second_qr_length: 0,
+                    solity_rule: null
                 });
             }
 
@@ -478,7 +502,8 @@
             } catch (error) {
                 return cloneSettings({
                     first_qr_length: 0,
-                    second_qr_length: 0
+                    second_qr_length: 0,
+                    solity_rule: null
                 });
             }
         }
@@ -486,14 +511,27 @@
         function normalizeSettings(settings) {
             return {
                 first_qr_length: sanitizeLength(settings && settings.first_qr_length),
-                second_qr_length: sanitizeLength(settings && settings.second_qr_length)
+                second_qr_length: sanitizeLength(settings && settings.second_qr_length),
+                solity_rule: normalizeSolityRule(settings && settings.solity_rule)
+            };
+        }
+
+        function normalizeSolityRule(rule) {
+            rule = rule || {};
+            return {
+                length: sanitizeLength(rule.length),
+                prefix: String(rule.prefix || "").trim().toUpperCase(),
+                suffixes: (rule.suffixes || []).map(function (item) {
+                    return String(item || "").trim().toUpperCase();
+                }).filter(Boolean)
             };
         }
 
         function cloneSettings(settings) {
             return {
                 first_qr_length: settings.first_qr_length,
-                second_qr_length: settings.second_qr_length
+                second_qr_length: settings.second_qr_length,
+                solity_rule: normalizeSolityRule(settings.solity_rule)
             };
         }
 
